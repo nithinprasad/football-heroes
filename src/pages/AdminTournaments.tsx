@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import tournamentService from '../services/tournament.service';
 import { Tournament, TournamentFormat } from '../types';
 
 function AdminTournaments() {
   const { userProfile, signOut } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -72,7 +74,7 @@ function AdminTournaments() {
       setShowCreateForm(false);
       loadTournaments();
     } catch (error: any) {
-      alert(error.message || 'Failed to create tournament');
+      toast.error(error.message || 'Failed to create tournament', 'Error');
     } finally {
       setSaving(false);
     }
@@ -85,10 +87,10 @@ function AdminTournaments() {
 
     try {
       await tournamentService.generateFixtures(tournamentId);
-      alert('Fixtures generated successfully!');
+      toast.success('Fixtures generated successfully!', 'Success!');
       loadTournaments();
     } catch (error: any) {
-      alert(error.message || 'Failed to generate fixtures');
+      toast.error(error.message || 'Failed to generate fixtures', 'Error');
     }
   };
 

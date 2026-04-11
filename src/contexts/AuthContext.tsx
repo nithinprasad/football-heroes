@@ -2,12 +2,14 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { User as FirebaseUser } from 'firebase/auth';
 import { User } from '../types';
 import authService from '../services/auth.service';
+import userService from '../services/user.service';
 
 interface AuthContextType {
   currentUser: FirebaseUser | null;
   userProfile: User | null;
   loading: boolean;
   signInWithPhone: (phoneNumber: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   verifyOTP: (code: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
@@ -39,7 +41,38 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (user) {
         // Fetch user profile
-        const profile = await authService.getUserProfile(user.uid);
+        let profile = await authService.getUserProfile(user.uid);
+
+        // If profile doesn't exist, create it (for existing users)
+        if (!profile) {
+          console.log('🔧 Creating user profile for existing user:', user.uid);
+          try {
+            await authService.createUserProfile(user.uid, {
+              mobileNumber: user.phoneNumber || '',
+              name: user.displayName || user.phoneNumber || 'User',
+              roles: ['player'],
+            });
+            profile = await authService.getUserProfile(user.uid);
+            console.log('✅ Profile created successfully:', profile);
+
+            // Check for and merge unverified profile
+            if (user.phoneNumber) {
+              try {
+                await userService.verifyUser(user.phoneNumber, user.uid);
+                // Reload profile after merge
+                profile = await authService.getUserProfile(user.uid);
+                console.log('✅ Unverified profile merged');
+              } catch (error) {
+                console.error('Error merging unverified profile:', error);
+              }
+            }
+          } catch (error) {
+            console.error('❌ Error creating user profile:', error);
+          }
+        } else {
+          console.log('✅ User profile loaded:', profile);
+        }
+
         setUserProfile(profile);
       } else {
         setUserProfile(null);
@@ -53,6 +86,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signInWithPhone = async (phoneNumber: string): Promise<void> => {
     await authService.sendOTP(phoneNumber);
+  };
+
+  const signInWithGoogle = async (): Promise<void> => {
+    const user = await authService.signInWithGoogle();
+    const profile = await authService.getUserProfile(user.uid);
+    setUserProfile(profile);
+    setCurrentUser(user);
   };
 
   const verifyOTP = async (code: string): Promise<void> => {
@@ -84,6 +124,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     userProfile,
     loading,
     signInWithPhone,
+    signInWithGoogle,
     verifyOTP,
     signOut,
     updateProfile,

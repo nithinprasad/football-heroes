@@ -1,16 +1,38 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import tournamentService from '../services/tournament.service';
 import { Tournament } from '../types';
+import Header from '../components/Header';
 
 function Tournaments() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [filteredTournaments, setFilteredTournaments] = useState<Tournament[]>([]);
   const [filter, setFilter] = useState<'ALL' | 'UPCOMING' | 'ONGOING' | 'COMPLETED'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadTournaments();
   }, [filter]);
+
+  useEffect(() => {
+    // Filter tournaments based on search query
+    if (searchQuery.trim() === '') {
+      setFilteredTournaments(tournaments);
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = tournaments.filter(
+        (t) =>
+          t.name.toLowerCase().includes(query) ||
+          t.location.toLowerCase().includes(query) ||
+          t.format.toLowerCase().includes(query)
+      );
+      setFilteredTournaments(filtered);
+    }
+  }, [searchQuery, tournaments]);
 
   const loadTournaments = async () => {
     setLoading(true);
@@ -22,6 +44,7 @@ function Tournaments() {
         data = await tournamentService.getTournamentsByStatus(filter);
       }
       setTournaments(data);
+      setFilteredTournaments(data);
     } catch (error) {
       console.error('Error loading tournaments:', error);
     } finally {
@@ -29,17 +52,19 @@ function Tournaments() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'UPCOMING':
-        return 'bg-blue-100 text-blue-800';
-      case 'ONGOING':
-        return 'bg-green-100 text-green-800';
-      case 'COMPLETED':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const getStatusBadge = (status: string) => {
+    const badges: any = {
+      UPCOMING: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30', icon: '🔜' },
+      ONGOING: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30', icon: '🔴' },
+      COMPLETED: { bg: 'bg-slate-500/20', text: 'text-slate-400', border: 'border-slate-500/30', icon: '✓' },
+    };
+    const badge = badges[status] || badges.UPCOMING;
+    return (
+      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${badge.bg} ${badge.text} ${badge.border} inline-flex items-center gap-1`}>
+        <span>{badge.icon}</span>
+        {status}
+      </span>
+    );
   };
 
   const formatDate = (date: any) => {
@@ -47,37 +72,50 @@ function Tournaments() {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <Link to="/" className="text-2xl font-bold text-green-600">
-            ⚽ Football Heroes
-          </Link>
-        </div>
-      </nav>
+  const getFormatIcon = (format: string) => {
+    if (format === 'LEAGUE') return '🏆';
+    if (format === 'KNOCKOUT') return '⚡';
+    return '🎯';
+  };
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Tournaments</h1>
-          <Link
-            to="/login"
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            Sign In
-          </Link>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+      {/* Navigation */}
+      <Header />
+
+      <div className="container mx-auto px-4 py-6 md:py-8">
+        {/* Header */}
+        <div className="text-center mb-8 md:mb-12">
+          <h1 className="text-4xl md:text-5xl font-black text-white mb-4">🏆 Tournaments</h1>
+          <p className="text-slate-400 text-base md:text-lg">Discover and join football tournaments near you</p>
+        </div>
+
+        {/* Search Bar */}
+        <div className="max-w-2xl mx-auto mb-6 md:mb-8">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search tournaments by name, location, or format..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-6 py-4 bg-slate-800/50 backdrop-blur-xl border border-white/10 rounded-2xl text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm md:text-base"
+            />
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400">
+              🔍
+            </div>
+          </div>
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex space-x-2 mb-6 overflow-x-auto">
+        <div className="flex gap-2 md:gap-3 mb-6 md:mb-8 overflow-x-auto pb-2">
           {['ALL', 'UPCOMING', 'ONGOING', 'COMPLETED'].map((status) => (
             <button
               key={status}
               onClick={() => setFilter(status as any)}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap ${
+              className={`px-4 md:px-6 py-2 md:py-3 rounded-xl font-bold whitespace-nowrap transition-all text-sm md:text-base ${
                 filter === status
-                  ? 'bg-green-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-500/30'
+                  : 'bg-slate-800/50 backdrop-blur-xl text-slate-300 border border-white/10 hover:bg-slate-800/70'
               }`}
             >
               {status}
@@ -85,58 +123,102 @@ function Tournaments() {
           ))}
         </div>
 
+        {/* Results Count */}
+        {searchQuery && (
+          <div className="mb-4 text-slate-400 text-sm md:text-base">
+            Found {filteredTournaments.length} tournament{filteredTournaments.length !== 1 ? 's' : ''}
+          </div>
+        )}
+
         {/* Tournaments Grid */}
         {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading tournaments...</p>
+          <div className="text-center py-12 md:py-20">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-500 mx-auto"></div>
+            <p className="mt-6 text-slate-400 text-sm md:text-base">Loading tournaments...</p>
           </div>
-        ) : tournaments.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg shadow">
-            <p className="text-gray-600">No tournaments found</p>
+        ) : filteredTournaments.length === 0 ? (
+          <div className="text-center py-12 md:py-20">
+            <div className="bg-slate-800/30 backdrop-blur-xl rounded-3xl border border-white/10 p-8 md:p-12 max-w-md mx-auto">
+              <div className="text-6xl md:text-7xl mb-4 opacity-30">🏆</div>
+              <h3 className="text-xl md:text-2xl font-bold text-white mb-2">No tournaments found</h3>
+              <p className="text-slate-400 mb-6 text-sm md:text-base">
+                {searchQuery ? 'Try different search terms' : 'Be the first to create one!'}
+              </p>
+              {!searchQuery && (
+                <Link
+                  to="/create-tournament"
+                  className="inline-block px-6 md:px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full font-bold hover:from-green-600 hover:to-emerald-700 transition-all text-sm md:text-base"
+                >
+                  Create Tournament
+                </Link>
+              )}
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {tournaments.map((tournament) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {filteredTournaments.map((tournament) => (
               <Link
                 key={tournament.id}
                 to={`/tournaments/${tournament.id}`}
-                className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden"
+                className="group bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden hover:bg-slate-800/70 hover:border-green-500/30 transition-all shadow-xl hover:shadow-2xl hover:shadow-green-500/10"
               >
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="text-xl font-bold text-gray-900">{tournament.name}</h3>
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(
-                        tournament.status
-                      )}`}
-                    >
-                      {tournament.status}
-                    </span>
+                {/* Tournament Banner */}
+                <div className="relative h-32 md:h-40 bg-gradient-to-br from-green-500/20 to-blue-500/20 p-4 md:p-6">
+                  <div className="absolute top-4 right-4">
+                    {getStatusBadge(tournament.status)}
                   </div>
-
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <div className="flex items-center">
-                      <span className="font-medium mr-2">📍</span>
-                      {tournament.location}
-                    </div>
-                    <div className="flex items-center">
-                      <span className="font-medium mr-2">📅</span>
-                      {formatDate(tournament.startDate)} - {formatDate(tournament.endDate)}
-                    </div>
-                    <div className="flex items-center">
-                      <span className="font-medium mr-2">🏆</span>
-                      {tournament.format.replace('_', ' + ')}
-                    </div>
-                    <div className="flex items-center">
-                      <span className="font-medium mr-2">👥</span>
-                      {tournament.teamIds.length} teams ({tournament.teamSize}-a-side)
-                    </div>
-                  </div>
+                  {tournament.logoURL ? (
+                    <img src={tournament.logoURL} alt={tournament.name} className="w-16 h-16 md:w-20 md:h-20 object-contain" />
+                  ) : (
+                    <div className="text-5xl md:text-6xl">{getFormatIcon(tournament.format)}</div>
+                  )}
                 </div>
 
-                <div className="bg-gray-50 px-6 py-3 text-sm text-green-600 font-medium">
-                  View Details →
+                {/* Tournament Info */}
+                <div className="p-4 md:p-6">
+                  <h3 className="text-lg md:text-xl font-bold text-white mb-3 group-hover:text-green-400 transition-colors line-clamp-2">
+                    {tournament.name}
+                  </h3>
+
+                  <div className="space-y-2 text-xs md:text-sm text-slate-400">
+                    <div className="flex items-center gap-2">
+                      <span>📍</span>
+                      <span className="line-clamp-1">{tournament.location}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>📅</span>
+                      <span>{formatDate(tournament.startDate)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>{getFormatIcon(tournament.format)}</span>
+                      <span>{tournament.format.replace('_', ' + ')}</span>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="mt-4 pt-4 border-t border-white/10 flex justify-between text-xs md:text-sm">
+                    <div className="text-center">
+                      <div className="text-lg md:text-xl font-bold text-green-400">{tournament.teamIds.length}</div>
+                      <div className="text-slate-500">Teams</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg md:text-xl font-bold text-blue-400">{tournament.teamSize}</div>
+                      <div className="text-slate-500">a-side</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg md:text-xl font-bold text-purple-400">
+                        {tournament.pointsForWin}
+                      </div>
+                      <div className="text-slate-500">pts/win</div>
+                    </div>
+                  </div>
+
+                  {/* View Button */}
+                  <div className="mt-4 pt-4 border-t border-white/10">
+                    <div className="text-green-400 font-bold text-center group-hover:text-green-300 transition-colors text-sm md:text-base">
+                      View Details →
+                    </div>
+                  </div>
                 </div>
               </Link>
             ))}

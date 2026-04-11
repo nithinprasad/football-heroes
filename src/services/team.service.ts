@@ -19,27 +19,51 @@ class TeamService {
   private teamsCollection = collection(db, 'teams');
 
   /**
+   * Generate a unique team ID (e.g., "WARRIORS-A7B3")
+   */
+  private generateTeamId(teamName: string): string {
+    const prefix = teamName
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .slice(0, 8);
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let suffix = '';
+    for (let i = 0; i < 4; i++) {
+      suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `${prefix || 'TEAM'}-${suffix}`;
+  }
+
+  /**
    * Create a new team
    */
   async createTeam(
-    captainId: string,
-    teamData: TeamFormData
+    teamData: TeamFormData,
+    managerId: string
   ): Promise<string> {
     try {
       const teamRef = doc(this.teamsCollection);
-      const team: Team = {
+      const teamId = this.generateTeamId(teamData.name);
+
+      const team: any = {
         id: teamRef.id,
+        teamId,
         name: teamData.name,
-        captainId,
-        playerIds: [captainId], // Captain is automatically a player
-        logoURL: teamData.logoURL,
+        managerId,
+        captainId: managerId, // Manager is initially the captain
+        playerIds: [managerId], // Manager is automatically a player
         createdAt: serverTimestamp() as any,
       };
 
+      // Only include logoURL if it has a value
+      if (teamData.logoURL) {
+        team.logoURL = teamData.logoURL;
+      }
+
       await setDoc(teamRef, team);
 
-      // Add team to captain's team list
-      await userService.addTeamToUser(captainId, teamRef.id);
+      // Add team to manager's team list
+      await userService.addTeamToUser(managerId, teamRef.id);
 
       return teamRef.id;
     } catch (error) {
@@ -148,22 +172,24 @@ class TeamService {
    * Add player to team
    */
   async addPlayerToTeam(teamId: string, playerId: string): Promise<void> {
-    try {
-      const team = await this.getTeamById(teamId);
-      if (!team) {
-        throw new Error('Team not found');
-      }
+    const team = await this.getTeamById(teamId);
+    if (!team) {
+      throw new Error('Team not found');
+    }
 
-      if (!team.playerIds.includes(playerId)) {
-        await this.updateTeam(teamId, {
-          playerIds: [...team.playerIds, playerId],
-        });
+    if (!team.playerIds.includes(playerId)) {
+      // Update team first
+      await this.updateTeam(teamId, {
+        playerIds: [...team.playerIds, playerId],
+      });
 
+      // Update user (allow this to fail silently if needed)
+      try {
         await userService.addTeamToUser(playerId, teamId);
+      } catch (error) {
+        console.error('Error updating user teamIds (non-critical):', error);
+        // Don't throw - team was already updated successfully
       }
-    } catch (error) {
-      console.error('Error adding player to team:', error);
-      throw new Error('Failed to add player to team');
     }
   }
 
@@ -264,6 +290,32 @@ class TeamService {
       querySnapshot.forEach((doc) => {
         const team = { ...doc.data(), id: doc.id } as Team;
         if (team.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+          teams.push(team);
+        }
+      });
+
+      return teams;
+    } catch (error) {
+      console.error('Error searching teams:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Search teams by name or teamId
+   */
+  async searchTeams(searchTerm: string): Promise<Team[]> {
+    try {
+      const querySnapshot = await getDocs(this.teamsCollection);
+      const teams: Team[] = [];
+      const search = searchTerm.toLowerCase();
+
+      querySnapshot.forEach((doc) => {
+        const team = { ...doc.data(), id: doc.id } as Team;
+        const matchesName = team.name.toLowerCase().includes(search);
+        const matchesTeamId = team.teamId?.toLowerCase().includes(search);
+
+        if (matchesName || matchesTeamId) {
           teams.push(team);
         }
       });

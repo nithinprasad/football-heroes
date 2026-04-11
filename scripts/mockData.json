@@ -1,0 +1,254 @@
+{
+  "instructions": "Use this data to manually populate Firebase through the console",
+  "users": [
+    {
+      "name": "John Smith",
+      "mobileNumber": "+1234567890",
+      "position": "Forward",
+      "jerseyNumber": 10,
+      "roles": ["player"],
+      "teamIds": [],
+      "statistics": {
+        "matches": 15,
+        "goals": 12,
+        "assists": 8,
+        "yellowCards": 2,
+        "redCards": 0,
+        "cleanSheets": 0
+      }
+    },
+    {
+      "name": "Mike Johnson",
+      "mobileNumber": "+1234567891",
+      "position": "Goalkeeper",
+      "jerseyNumber": 1,
+      "roles": ["player"],
+      "teamIds": [],
+      "statistics": {
+        "matches": 15,
+        "goals": 0,
+        "assists": 0,
+        "yellowCards": 1,
+        "redCards": 0,
+        "cleanSheets": 8
+      }
+    },
+    {
+      "name": "David Brown",
+      "mobileNumber": "+1234567892",
+      "position": "Defender",
+      "jerseyNumber": 5,
+      "roles": ["player", "captain"],
+      "teamIds": [],
+      "statistics": {
+        "matches": 15,
+        "goals": 3,
+        "assists": 2,
+        "yellowCards": 4,
+        "redCards": 1,
+        "cleanSheets": 0
+      }
+    },
+    {
+      "name": "James Wilson",
+      "mobileNumber": "+1234567893",
+      "position": "Midfielder",
+      "jerseyNumber": 8,
+      "roles": ["player"],
+      "teamIds": [],
+      "statistics": {
+        "matches": 14,
+        "goals": 7,
+        "assists": 10,
+        "yellowCards": 3,
+        "redCards": 0,
+        "cleanSheets": 0
+      }
+    },
+    {
+      "name": "Robert Lee",
+      "mobileNumber": "+1234567894",
+      "position": "Forward",
+      "jerseyNumber": 9,
+      "roles": ["player"],
+      "teamIds": [],
+      "statistics": {
+        "matches": 15,
+        "goals": 15,
+        "assists": 5,
+        "yellowCards": 1,
+        "redCards": 0,
+        "cleanSheets": 0
+      }
+    },
+    {
+      "name": "Chris Martin",
+      "mobileNumber": "+1234567895",
+      "position": "Midfielder",
+      "jerseyNumber": 7,
+      "roles": ["player"],
+      "teamIds": [],
+      "statistics": {
+        "matches": 13,
+        "goals": 5,
+        "assists": 7,
+        "yellowCards": 2,
+        "redCards": 0,
+        "cleanSheets": 0
+      }
+    },
+    {
+      "name": "Tom Davis",
+      "mobileNumber": "+1234567896",
+      "position": "Defender",
+      "jerseyNumber": 4,
+      "roles": ["player"],
+      "teamIds": [],
+      "statistics": {
+        "matches": 14,
+        "goals": 1,
+        "assists": 3,
+        "yellowCards": 5,
+        "redCards": 0,
+        "cleanSheets": 0
+      }
+    },
+    {
+      "name": "Alex Turner",
+      "mobileNumber": "+1234567897",
+      "position": "Forward",
+      "jerseyNumber": 11,
+      "roles": ["player"],
+      "teamIds": [],
+      "statistics": {
+        "matches": 12,
+        "goals": 9,
+        "assists": 4,
+        "yellowCards": 1,
+        "redCards": 0,
+        "cleanSheets": 0
+      }
+    },
+    {
+      "name": "Admin User",
+      "mobileNumber": "+1234567899",
+      "position": "Forward",
+      "jerseyNumber": 99,
+      "roles": ["player", "admin"],
+      "teamIds": [],
+      "statistics": {
+        "matches": 0,
+        "goals": 0,
+        "assists": 0,
+        "yellowCards": 0,
+        "redCards": 0,
+        "cleanSheets": 0
+      }
+    }
+  ],
+  "teams": [
+    {
+      "name": "Red Dragons",
+      "captainId": "USER_ID_1",
+      "playerIds": ["USER_ID_1", "USER_ID_2", "USER_ID_3"]
+    },
+    {
+      "name": "Blue Eagles",
+      "captainId": "USER_ID_4",
+      "playerIds": ["USER_ID_4", "USER_ID_5", "USER_ID_6"]
+    },
+    {
+      "name": "Green Panthers",
+      "captainId": "USER_ID_7",
+      "playerIds": ["USER_ID_7", "USER_ID_8"]
+    },
+    {
+      "name": "Yellow Tigers",
+      "captainId": "USER_ID_1",
+      "playerIds": ["USER_ID_1", "USER_ID_3", "USER_ID_5"]
+    }
+  ],
+  "tournament": {
+    "name": "Summer Championship 2024",
+    "format": "LEAGUE_KNOCKOUT",
+    "teamSize": 11,
+    "location": "Central Sports Complex",
+    "status": "ONGOING",
+    "numberOfGroups": 2,
+    "pointsForWin": 3,
+    "pointsForDraw": 1,
+    "pointsForLoss": 0,
+    "matchDuration": 90,
+    "teamIds": ["TEAM_ID_1", "TEAM_ID_2", "TEAM_ID_3", "TEAM_ID_4"],
+    "createdBy": "ADMIN_USER_ID",
+    "organizerIds": ["ADMIN_USER_ID"],
+    "scorerIds": ["ADMIN_USER_ID"],
+    "startDate": "2024-06-01T00:00:00.000Z",
+    "endDate": "2024-06-30T23:59:59.999Z"
+  },
+  "matches": [
+    {
+      "tournamentId": "TOURNAMENT_ID",
+      "homeTeamId": "TEAM_ID_1",
+      "awayTeamId": "TEAM_ID_2",
+      "stage": "GROUP",
+      "groupName": "Group A",
+      "matchDate": "2024-06-10T14:00:00.000Z",
+      "venue": "Central Sports Complex",
+      "status": "SCHEDULED",
+      "score": {
+        "home": 0,
+        "away": 0
+      },
+      "matchDuration": 90
+    },
+    {
+      "tournamentId": "TOURNAMENT_ID",
+      "homeTeamId": "TEAM_ID_3",
+      "awayTeamId": "TEAM_ID_4",
+      "stage": "GROUP",
+      "groupName": "Group B",
+      "matchDate": "2024-06-10T16:00:00.000Z",
+      "venue": "Central Sports Complex",
+      "status": "SCHEDULED",
+      "score": {
+        "home": 0,
+        "away": 0
+      },
+      "matchDuration": 90
+    },
+    {
+      "tournamentId": "TOURNAMENT_ID",
+      "homeTeamId": "TEAM_ID_1",
+      "awayTeamId": "TEAM_ID_3",
+      "stage": "GROUP",
+      "groupName": "Group A",
+      "matchDate": "2024-06-05T14:00:00.000Z",
+      "venue": "Central Sports Complex",
+      "status": "COMPLETED",
+      "score": {
+        "home": 3,
+        "away": 1
+      },
+      "matchDuration": 90,
+      "playerStats": []
+    },
+    {
+      "tournamentId": "TOURNAMENT_ID",
+      "homeTeamId": "TEAM_ID_2",
+      "awayTeamId": "TEAM_ID_4",
+      "stage": "GROUP",
+      "groupName": "Group B",
+      "matchDate": "2024-06-06T16:00:00.000Z",
+      "venue": "Central Sports Complex",
+      "status": "COMPLETED",
+      "score": {
+        "home": 2,
+        "away": 2
+      },
+      "matchDuration": 90,
+      "playerStats": []
+    }
+  ],
+  "note": "Replace USER_ID_X, TEAM_ID_X, TOURNAMENT_ID, and ADMIN_USER_ID with actual Firebase document IDs after creation"
+}

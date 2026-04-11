@@ -1,5 +1,7 @@
 import {
   signInWithPhoneNumber,
+  signInWithPopup,
+  GoogleAuthProvider,
   RecaptchaVerifier,
   ConfirmationResult,
   signOut as firebaseSignOut,
@@ -22,20 +24,47 @@ class AuthService {
    * Initialize reCAPTCHA verifier for phone authentication
    */
   initRecaptchaVerifier(containerId: string = 'recaptcha-container'): RecaptchaVerifier {
+    // Clear existing verifier if it exists
     if (window.recaptchaVerifier) {
-      window.recaptchaVerifier.clear();
+      try {
+        window.recaptchaVerifier.clear();
+      } catch (e) {
+        console.warn('Could not clear existing reCAPTCHA:', e);
+      }
+      window.recaptchaVerifier = undefined;
     }
 
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
-      size: 'invisible',
-      callback: () => {
-        // reCAPTCHA solved - will proceed with phone authentication
-      },
-      'expired-callback': () => {
-        // Response expired. Ask user to solve reCAPTCHA again.
-        console.error('reCAPTCHA expired');
-      },
-    });
+    // Ensure the container element exists
+    let container = document.getElementById(containerId);
+    if (!container) {
+      console.warn(`reCAPTCHA container '${containerId}' not found, creating it`);
+      container = document.createElement('div');
+      container.id = containerId;
+      container.style.display = 'block'; // Make sure it's visible for reCAPTCHA
+      document.body.appendChild(container);
+    }
+
+    try {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
+        size: 'invisible',
+        callback: (response: any) => {
+          // reCAPTCHA solved - will proceed with phone authentication
+          console.log('reCAPTCHA solved successfully');
+        },
+        'expired-callback': () => {
+          // Response expired. Ask user to solve reCAPTCHA again.
+          console.error('reCAPTCHA expired');
+        },
+      });
+
+      // Render the reCAPTCHA
+      window.recaptchaVerifier.render().then((widgetId: any) => {
+        console.log('reCAPTCHA rendered with widget ID:', widgetId);
+      });
+    } catch (error) {
+      console.error('Error initializing reCAPTCHA:', error);
+      throw error;
+    }
 
     return window.recaptchaVerifier;
   }
@@ -95,6 +124,35 @@ class AuthService {
   }
 
   /**
+   * Sign in with Google
+   */
+  async signInWithGoogle(): Promise<FirebaseUser> {
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Check if user profile exists
+      const userDoc = await this.getUserProfile(user.uid);
+
+      if (!userDoc) {
+        // Create initial user profile with Google info
+        await this.createUserProfile(user.uid, {
+          mobileNumber: '', // Will be added later
+          name: user.displayName || '',
+          roles: ['player'],
+          photoURL: user.photoURL || undefined,
+        });
+      }
+
+      return user;
+    } catch (error: any) {
+      console.error('Error signing in with Google:', error);
+      throw new Error(error.message || 'Failed to sign in with Google');
+    }
+  }
+
+  /**
    * Create user profile in Firestore
    */
   async createUserProfile(
@@ -123,11 +181,13 @@ class AuthService {
           yellowCards: 0,
           redCards: 0,
         },
+        isVerified: true, // User signed up through authentication
         createdAt: serverTimestamp() as any,
         updatedAt: serverTimestamp() as any,
       };
 
       await setDoc(userRef, userData);
+      console.log('✅ User profile created in Firestore:', uid);
     } catch (error: any) {
       console.error('Error creating user profile:', error);
       throw new Error('Failed to create user profile');

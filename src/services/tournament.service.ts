@@ -11,7 +11,8 @@ import {
   serverTimestamp,
   orderBy,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from './firebase';
 import { Tournament, TournamentFormData, Match } from '../types';
 import FixtureGenerator from '../utils/fixtureGenerator';
 
@@ -22,29 +23,58 @@ class TournamentService {
   /**
    * Create a new tournament
    */
+  /**
+   * Generate a unique 6-character invite code
+   */
+  private generateInviteCode(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
   async createTournament(
     createdBy: string,
     data: TournamentFormData
   ): Promise<string> {
     try {
       const tournamentRef = doc(this.tournamentsCollection);
-      const tournament: Tournament = {
+      const inviteCode = this.generateInviteCode();
+
+      const tournament: any = {
         id: tournamentRef.id,
         name: data.name,
         format: data.format,
         teamSize: data.teamSize,
+        numberOfTeams: data.numberOfTeams || 4,
         startDate: data.startDate,
         endDate: data.endDate,
         location: data.location,
         status: 'UPCOMING',
-        numberOfGroups: data.numberOfGroups,
         pointsForWin: 3,
         pointsForDraw: 1,
         pointsForLoss: 0,
+        matchDuration: data.matchDuration || 90,
         createdBy,
+        organizerIds: data.organizerIds || [createdBy],
+        scorerIds: data.organizerIds || [createdBy],
         teamIds: [],
+        inviteCode,
         createdAt: serverTimestamp() as any,
       };
+
+      // Only include optional fields if they exist and have valid values
+      if ('numberOfGroups' in data && typeof data.numberOfGroups === 'number' && data.numberOfGroups > 0) {
+        tournament.numberOfGroups = data.numberOfGroups;
+      }
+      if ('logoURL' in data && data.logoURL && typeof data.logoURL === 'string' && data.logoURL.trim()) {
+        tournament.logoURL = data.logoURL.trim();
+      }
+      if ('homeTeamId' in data && data.homeTeamId && typeof data.homeTeamId === 'string' && data.homeTeamId.trim()) {
+        tournament.homeTeamId = data.homeTeamId.trim();
+      }
 
       await setDoc(tournamentRef, tournament);
       return tournamentRef.id;
@@ -113,6 +143,30 @@ class TournamentService {
       return tournaments;
     } catch (error) {
       console.error('Error fetching tournaments by status:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get tournaments where user is an organizer
+   */
+  async getTournamentsByOrganizer(organizerId: string): Promise<Tournament[]> {
+    try {
+      const q = query(
+        this.tournamentsCollection,
+        where('organizerIds', 'array-contains', organizerId),
+        orderBy('startDate', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+
+      const tournaments: Tournament[] = [];
+      querySnapshot.forEach((doc) => {
+        tournaments.push({ ...doc.data(), id: doc.id } as Tournament);
+      });
+
+      return tournaments;
+    } catch (error) {
+      console.error('Error fetching tournaments by organizer:', error);
       return [];
     }
   }
@@ -217,13 +271,25 @@ class TournamentService {
         numberOfGroups: tournament.numberOfGroups,
       });
 
+      console.log(`📅 Generating ${fixtures.length} fixtures for tournament ${tournament.name}`);
+
       // Save all matches to Firestore
       const savePromises = fixtures.map((match) => {
         const matchRef = doc(this.matchesCollection);
-        return setDoc(matchRef, { ...match, id: matchRef.id });
+
+        // Remove undefined fields (Firestore doesn't allow undefined)
+        const matchData: any = { ...match, id: matchRef.id };
+        Object.keys(matchData).forEach(key => {
+          if (matchData[key] === undefined) {
+            delete matchData[key];
+          }
+        });
+
+        return setDoc(matchRef, matchData);
       });
 
       await Promise.all(savePromises);
+      console.log(`✅ Successfully created ${fixtures.length} matches`);
 
       // Update tournament status
       await this.updateTournament(tournamentId, {
@@ -256,6 +322,69 @@ class TournamentService {
     } catch (error) {
       console.error('Error fetching creator tournaments:', error);
       return [];
+    }
+  }
+
+  /**
+   * Add organizer to tournament
+   */
+  async addOrganizer(tournamentId: string, organizerId: string): Promise<void> {
+    try {
+      const tournament = await this.getTournamentById(tournamentId);
+      if (!tournament) {
+        throw new Error('Tournament not found');
+      }
+
+      if (!tournament.organizerIds.includes(organizerId)) {
+        await this.updateTournament(tournamentId, {
+          organizerIds: [...tournament.organizerIds, organizerId],
+        });
+      }
+    } catch (error) {
+      console.error('Error adding organizer:', error);
+      throw new Error('Failed to add organizer');
+    }
+  }
+
+  /**
+   * Remove organizer from tournament
+   */
+  async removeOrganizer(tournamentId: string, organizerId: string): Promise<void> {
+    try {
+      const tournament = await this.getTournamentById(tournamentId);
+      if (!tournament) {
+        throw new Error('Tournament not found');
+      }
+
+      // Don't allow removing the creator
+      if (tournament.createdBy === organizerId) {
+        throw new Error('Cannot remove tournament creator');
+      }
+
+      await this.updateTournament(tournamentId, {
+        organizerIds: tournament.organizerIds.filter((id) => id !== organizerId),
+      });
+    } catch (error) {
+      console.error('Error removing organizer:', error);
+      throw new Error('Failed to remove organizer');
+    }
+  }
+
+  /**
+   * Upload tournament logo
+   */
+  async uploadTournamentLogo(tournamentId: string, file: File): Promise<string> {
+    try {
+      const storageRef = ref(storage, `tournaments/${tournamentId}/logo.jpg`);
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      await this.updateTournament(tournamentId, { logoURL: downloadURL });
+
+      return downloadURL;
+    } catch (error) {
+      console.error('Error uploading tournament logo:', error);
+      throw new Error('Failed to upload tournament logo');
     }
   }
 }

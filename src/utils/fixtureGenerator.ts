@@ -213,13 +213,12 @@ export class FixtureGenerator {
     groupName?: string;
     matchNumber: number;
   }): Match {
-    return {
+    const match: any = {
       id: '', // Will be set when saved to Firestore
       tournamentId: data.tournamentId,
       homeTeamId: data.homeTeamId,
       awayTeamId: data.awayTeamId,
       stage: data.stage,
-      groupName: data.groupName,
       matchNumber: data.matchNumber,
       matchDate: data.matchDate,
       venue: data.venue,
@@ -231,6 +230,13 @@ export class FixtureGenerator {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+
+    // Only include groupName if it's defined (Firestore doesn't allow undefined)
+    if (data.groupName !== undefined) {
+      match.groupName = data.groupName;
+    }
+
+    return match as Match;
   }
 
   /**

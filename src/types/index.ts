@@ -21,6 +21,8 @@ export interface User {
   roles: UserRole[];
   teamIds: string[];
   statistics: UserStats;
+  achievements?: string[]; // List of achievements
+  isVerified?: boolean; // true if user signed up, false if created by manager
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,7 +30,9 @@ export interface User {
 // Team Types
 export interface Team {
   id: string;
+  teamId?: string; // Unique, user-friendly identifier (e.g., "WARRIORS-A7B3") - optional for backward compatibility
   name: string;
+  managerId?: string; // User who created/manages the team - optional for backward compatibility
   captainId: string;
   playerIds: string[];
   logoURL?: string;
@@ -43,7 +47,8 @@ export interface Tournament {
   id: string;
   name: string;
   format: TournamentFormat;
-  teamSize: number; // 5, 7, 11, etc.
+  teamSize: number; // 5, 6, 7, 9, 11, etc.
+  numberOfTeams?: number; // Expected number of teams
   startDate: Date;
   endDate: Date;
   location: string;
@@ -52,8 +57,14 @@ export interface Tournament {
   pointsForWin: number; // default 3
   pointsForDraw: number; // default 1
   pointsForLoss: number; // default 0
+  matchDuration: number; // default 90 minutes (or 60, 45, 30)
   createdBy: string;
+  organizerIds: string[]; // Multiple organizers who can manage the tournament
+  scorerIds?: string[]; // Users who can score matches
+  logoURL?: string; // Tournament logo
+  homeTeamId?: string; // Home team for the tournament
   teamIds: string[];
+  inviteCode?: string; // Code for teams to join
   createdAt: Date;
 }
 
@@ -72,12 +83,20 @@ export interface PlayerMatchStats {
   assists: number;
   yellowCards: number;
   redCards: number;
+  ownGoals?: number; // Own goals scored
   cleanSheet?: boolean; // for goalkeepers
+  events?: MatchEvent[]; // Timeline of events for this player
+}
+
+export interface MatchEvent {
+  type: 'goal' | 'assist' | 'yellow' | 'red' | 'owngoal';
+  timestamp: Date; // When the event occurred
+  minute?: number; // Match minute when event occurred
 }
 
 export interface Match {
   id: string;
-  tournamentId: string;
+  tournamentId?: string; // Optional for standalone matches
   homeTeamId: string;
   awayTeamId: string;
   stage: MatchStage;
@@ -88,6 +107,14 @@ export interface Match {
   status: MatchStatus;
   score: MatchScore;
   playerStats?: PlayerMatchStats[];
+  createdBy?: string; // For standalone matches
+  matchDuration?: number; // in minutes (defaults to tournament setting)
+  currentTime?: number; // current match time in seconds
+  halfTimeReached?: boolean; // whether halftime has been reached
+  startedBy?: string; // user who started the match
+  startedAt?: Date; // when match was started
+  manOfTheMatch?: string; // Player ID of man of the match
+  playerRatings?: { [playerId: string]: number }; // Player ratings (1-10)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -111,6 +138,23 @@ export interface Invitation {
   createdAt: Date;
   expiresAt: Date;
   updatedAt?: Date;
+}
+
+// Tournament Join Request Types
+export type JoinRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface TournamentJoinRequest {
+  id: string;
+  tournamentId: string;
+  teamId: string;
+  teamName: string; // Denormalized for easy display
+  requestedBy: string; // User ID who made the request
+  requestedByName: string; // Denormalized for easy display
+  status: JoinRequestStatus;
+  message?: string; // Optional message from team
+  createdAt: Date;
+  reviewedAt?: Date;
+  reviewedBy?: string; // Organizer who approved/rejected
 }
 
 // Standings Types
@@ -138,6 +182,7 @@ export interface TournamentStandings {
 export interface TopScorer {
   playerId: string;
   playerName: string;
+  photoURL?: string;
   teamId: string;
   teamName: string;
   goals: number;
@@ -147,6 +192,7 @@ export interface TopScorer {
 export interface TopAssist {
   playerId: string;
   playerName: string;
+  photoURL?: string;
   teamId: string;
   teamName: string;
   assists: number;
@@ -156,6 +202,7 @@ export interface TopAssist {
 export interface TopGoalkeeper {
   playerId: string;
   playerName: string;
+  photoURL?: string;
   teamId: string;
   teamName: string;
   cleanSheets: number;
@@ -185,10 +232,15 @@ export interface TournamentFormData {
   name: string;
   format: TournamentFormat;
   teamSize: number;
+  numberOfTeams?: number;
   startDate: Date;
   endDate: Date;
   location: string;
   numberOfGroups?: number;
+  matchDuration?: number;
+  organizerIds?: string[];
+  logoURL?: string;
+  homeTeamId?: string;
 }
 
 export interface InvitePlayerFormData {

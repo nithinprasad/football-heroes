@@ -1,15 +1,18 @@
 import {
   collection,
   doc,
+  setDoc,
   getDoc,
   getDocs,
   query,
   where,
   updateDoc,
   orderBy,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Match, MatchResultFormData, PlayerMatchStats } from '../types';
+import userService from './user.service';
 
 class MatchService {
   private matchesCollection = collection(db, 'matches');
@@ -160,20 +163,155 @@ class MatchService {
   }
 
   /**
+   * Create a standalone match (not part of a tournament)
+   */
+  async createStandaloneMatch(matchData: {
+    homeTeamId: string;
+    awayTeamId: string;
+    matchDate: Date;
+    venue: string;
+    matchDuration: number;
+    createdBy: string;
+  }): Promise<string> {
+    try {
+      const matchRef = doc(this.matchesCollection);
+
+      // Build match object without undefined fields (Firestore doesn't allow undefined)
+      const match: any = {
+        id: matchRef.id,
+        // tournamentId is omitted for standalone matches (not undefined)
+        homeTeamId: matchData.homeTeamId,
+        awayTeamId: matchData.awayTeamId,
+        stage: 'GROUP', // Default stage for standalone
+        matchDate: matchData.matchDate,
+        venue: matchData.venue,
+        status: 'SCHEDULED',
+        score: { home: 0, away: 0 },
+        playerStats: [],
+        createdBy: matchData.createdBy,
+        matchDuration: matchData.matchDuration,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      console.log('⚽ Creating standalone match:', {
+        homeTeamId: matchData.homeTeamId,
+        awayTeamId: matchData.awayTeamId,
+        venue: matchData.venue,
+      });
+
+      await setDoc(matchRef, match);
+      console.log('✅ Standalone match created successfully:', matchRef.id);
+      return matchRef.id;
+    } catch (error) {
+      console.error('Error creating standalone match:', error);
+      throw new Error('Failed to create match');
+    }
+  }
+
+  /**
    * Update match score (admin/organizer only)
    */
-  async updateMatchScore(matchId: string, result: MatchResultFormData): Promise<void> {
+  async updateMatchScore(matchId: string, result: MatchResultFormData, completeMatch: boolean = true): Promise<void> {
     try {
+      const logMessage = completeMatch ? '🏁 Ending match and saving final score:' : '⚽ Updating match score:';
+      console.log(logMessage, {
+        matchId,
+        homeScore: result.homeScore,
+        awayScore: result.awayScore,
+        statsCount: result.playerStats.length,
+      });
+
       const matchRef = doc(db, 'matches', matchId);
-      await updateDoc(matchRef, {
+      const match = await this.getMatchById(matchId);
+
+      // Clean player stats to remove undefined fields
+      const cleanedStats = result.playerStats.map((stat) => {
+        const cleaned: any = {
+          playerId: stat.playerId,
+          goals: stat.goals,
+          assists: stat.assists,
+          yellowCards: stat.yellowCards,
+          redCards: stat.redCards,
+        };
+
+        // Only include cleanSheet if it has a value
+        if (stat.cleanSheet !== undefined) {
+          cleaned.cleanSheet = stat.cleanSheet;
+        }
+
+        // Include events if they exist
+        if (stat.events && stat.events.length > 0) {
+          cleaned.events = stat.events.map((event) => {
+            const cleanedEvent: any = {
+              type: event.type,
+              timestamp: event.timestamp,
+            };
+            if (event.minute !== undefined) {
+              cleanedEvent.minute = event.minute;
+            }
+            return cleanedEvent;
+          });
+        }
+
+        return cleaned;
+      });
+
+      const updateData: any = {
         'score.home': result.homeScore,
         'score.away': result.awayScore,
-        playerStats: result.playerStats,
-        status: 'COMPLETED',
+        playerStats: cleanedStats,
         updatedAt: new Date(),
-      });
+      };
+
+      // Only set status to COMPLETED if explicitly ending the match
+      if (completeMatch) {
+        updateData.status = 'COMPLETED';
+      }
+
+      await updateDoc(matchRef, updateData);
+
+      console.log(completeMatch ? '✅ Match completed successfully' : '✅ Match score updated');
+
+      // Update player statistics only when match is being completed
+      if (completeMatch && match && match.status !== 'COMPLETED') {
+        console.log('📊 Updating player statistics for match:', matchId);
+        console.log('Match status before:', match.status);
+        console.log('Player stats to update:', result.playerStats);
+
+        const eligiblePlayers = result.playerStats.filter(stat => !stat.playerId.startsWith('guest_'));
+        console.log('Eligible players (excluding guests):', eligiblePlayers);
+
+        const updatePromises = eligiblePlayers.map((stat) => {
+          console.log(`Updating stats for player ${stat.playerId}:`, {
+            goals: stat.goals,
+            assists: stat.assists,
+            yellowCards: stat.yellowCards,
+            redCards: stat.redCards,
+            cleanSheets: stat.cleanSheet ? 1 : 0,
+          });
+
+          return userService.updateUserStats(stat.playerId, {
+            goals: stat.goals,
+            assists: stat.assists,
+            yellowCards: stat.yellowCards,
+            redCards: stat.redCards,
+            cleanSheets: stat.cleanSheet ? 1 : 0,
+          });
+        });
+
+        await Promise.all(updatePromises);
+        console.log('✅ All player statistics updated successfully');
+      } else {
+        console.log('⏭️ Skipping player stats update:', {
+          completeMatch,
+          matchExists: !!match,
+          matchStatus: match?.status,
+          reason: !completeMatch ? 'Not completing match' : match?.status === 'COMPLETED' ? 'Match already completed' : 'Unknown',
+        });
+      }
     } catch (error) {
-      console.error('Error updating match score:', error);
+      console.error('❌ Error updating match score:', error);
       throw new Error('Failed to update match score');
     }
   }
@@ -202,6 +340,7 @@ class MatchService {
    */
   async addPlayerStats(matchId: string, playerStats: PlayerMatchStats[]): Promise<void> {
     try {
+      console.log('⚽ Adding player stats to match:', matchId, playerStats);
       const matchRef = doc(db, 'matches', matchId);
       const match = await this.getMatchById(matchId);
 
@@ -219,17 +358,67 @@ class MatchService {
 
         if (existingIndex >= 0) {
           // Update existing stats
-          updatedStats[existingIndex] = {
-            ...updatedStats[existingIndex],
+          const updated: any = {
+            playerId: updatedStats[existingIndex].playerId,
             goals: updatedStats[existingIndex].goals + newStat.goals,
             assists: updatedStats[existingIndex].assists + newStat.assists,
             yellowCards: updatedStats[existingIndex].yellowCards + newStat.yellowCards,
             redCards: updatedStats[existingIndex].redCards + newStat.redCards,
-            cleanSheet: newStat.cleanSheet || updatedStats[existingIndex].cleanSheet,
           };
+
+          // Only include cleanSheet if it has a value
+          if (newStat.cleanSheet !== undefined || updatedStats[existingIndex].cleanSheet !== undefined) {
+            updated.cleanSheet = newStat.cleanSheet || updatedStats[existingIndex].cleanSheet;
+          }
+
+          // Merge events
+          if (newStat.events || updatedStats[existingIndex].events) {
+            updated.events = [
+              ...(updatedStats[existingIndex].events || []),
+              ...(newStat.events || []),
+            ].map((event) => {
+              const cleanedEvent: any = {
+                type: event.type,
+                timestamp: event.timestamp,
+              };
+              if (event.minute !== undefined) {
+                cleanedEvent.minute = event.minute;
+              }
+              return cleanedEvent;
+            });
+          }
+
+          updatedStats[existingIndex] = updated;
         } else {
-          // Add new stats
-          updatedStats.push(newStat);
+          // Add new stats - remove undefined fields
+          const newStatClean: any = {
+            playerId: newStat.playerId,
+            goals: newStat.goals,
+            assists: newStat.assists,
+            yellowCards: newStat.yellowCards,
+            redCards: newStat.redCards,
+          };
+
+          // Only include cleanSheet if it has a value
+          if (newStat.cleanSheet !== undefined) {
+            newStatClean.cleanSheet = newStat.cleanSheet;
+          }
+
+          // Include events if they exist
+          if (newStat.events && newStat.events.length > 0) {
+            newStatClean.events = newStat.events.map((event) => {
+              const cleanedEvent: any = {
+                type: event.type,
+                timestamp: event.timestamp,
+              };
+              if (event.minute !== undefined) {
+                cleanedEvent.minute = event.minute;
+              }
+              return cleanedEvent;
+            });
+          }
+
+          updatedStats.push(newStatClean);
         }
       });
 
@@ -237,8 +426,10 @@ class MatchService {
         playerStats: updatedStats,
         updatedAt: new Date(),
       });
+
+      console.log('✅ Player stats added successfully. Total stats:', updatedStats.length);
     } catch (error) {
-      console.error('Error adding player stats:', error);
+      console.error('❌ Error adding player stats:', error);
       throw new Error('Failed to add player stats');
     }
   }
@@ -265,6 +456,72 @@ class MatchService {
     } catch (error) {
       console.error('Error fetching completed matches:', error);
       return [];
+    }
+  }
+
+  /**
+   * Update only player stats without changing score
+   */
+  async updateMatchPlayerStats(matchId: string, playerStats: PlayerMatchStats[]): Promise<void> {
+    try {
+      const matchRef = doc(db, 'matches', matchId);
+
+      // Clean player stats to remove undefined fields
+      const cleanedStats = playerStats.map((stat) => {
+        const cleaned: any = {
+          playerId: stat.playerId,
+          goals: stat.goals,
+          assists: stat.assists,
+          yellowCards: stat.yellowCards,
+          redCards: stat.redCards,
+        };
+
+        if (stat.cleanSheet !== undefined) {
+          cleaned.cleanSheet = stat.cleanSheet;
+        }
+
+        if (stat.events && stat.events.length > 0) {
+          cleaned.events = stat.events.map((event) => {
+            const cleanedEvent: any = {
+              type: event.type,
+              timestamp: event.timestamp,
+            };
+            if (event.minute !== undefined) {
+              cleanedEvent.minute = event.minute;
+            }
+            return cleanedEvent;
+          });
+        }
+
+        return cleaned;
+      });
+
+      await updateDoc(matchRef, {
+        playerStats: cleanedStats,
+        updatedAt: new Date(),
+      });
+
+      console.log('✅ Player stats updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating player stats:', error);
+      throw new Error('Failed to update player stats');
+    }
+  }
+
+  /**
+   * Delete match (creator only)
+   */
+  async deleteMatch(matchId: string): Promise<void> {
+    try {
+      const matchRef = doc(db, 'matches', matchId);
+      await updateDoc(matchRef, {
+        status: 'CANCELLED',
+        updatedAt: new Date(),
+      });
+      console.log('✅ Match cancelled successfully');
+    } catch (error) {
+      console.error('❌ Error deleting match:', error);
+      throw new Error('Failed to delete match');
     }
   }
 }

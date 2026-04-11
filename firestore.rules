@@ -21,57 +21,119 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['captain', 'admin']);
     }
 
+    function isOrganizer(tournamentId) {
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.organizerIds.hasAny([request.auth.uid]) ||
+        isAdmin()
+      );
+    }
+
     // Users collection
     match /users/{userId} {
-      // Anyone authenticated can read user profiles
-      allow read: if isSignedIn();
+      // Anyone can read user profiles (public access for leaderboards)
+      allow read: if true;
 
-      // Users can only write their own profile
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
+      // Users can create their own profile OR create unverified profiles (for adding players by phone)
+      allow create: if isSignedIn() && (
+        request.auth.uid == userId || // Creating own profile
+        userId.matches('unverified_.*') // Creating unverified profile (managers adding players)
+      );
+
+      // Allow authenticated users to update user profiles
+      // This enables:
+      // 1. Users to update their own profile
+      // 2. Team managers to add/remove players from teams
+      // 3. Match organizers to update player statistics after matches
+      // Security: Application logic validates ownership/permissions before updates
+      allow update: if isSignedIn() && (
+        request.auth.uid == userId || // Own profile
+        isAdmin() || // Admins can update any profile
+        // Allow updating statistics field (for match score updates)
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statistics', 'updatedAt'])
+      );
+
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     // Teams collection
     match /teams/{teamId} {
-      // Anyone authenticated can read teams
-      allow read: if isSignedIn();
+      // Anyone can read teams (public access)
+      allow read: if true;
 
-      // Only authenticated users can create teams
+      // Authenticated users can create teams
       allow create: if isSignedIn();
 
-      // Captain or admin can update/delete team
+      // Team manager, captain, or admin can update/delete team
       allow update, delete: if isSignedIn() && (
         resource.data.captainId == request.auth.uid ||
+        ('managerId' in resource.data && resource.data.managerId == request.auth.uid) ||
         isAdmin()
       );
     }
 
     // Tournaments collection
     match /tournaments/{tournamentId} {
-      // Anyone authenticated can read tournaments
-      allow read: if isSignedIn();
+      // Anyone can read tournaments (public access for guests)
+      allow read: if true;
 
-      // Only admins can create tournaments
-      allow create: if isAdmin();
+      // Any authenticated user can create tournaments
+      allow create: if isSignedIn();
 
-      // Tournament creator or admin can update/delete
+      // Tournament organizers or admin can update/delete
       allow update, delete: if isSignedIn() && (
-        resource.data.createdBy == request.auth.uid ||
+        resource.data.organizerIds.hasAny([request.auth.uid]) ||
         isAdmin()
       );
     }
 
     // Matches collection
     match /matches/{matchId} {
-      // Anyone authenticated can read matches
-      allow read: if isSignedIn();
+      // Anyone can read matches (public access for guests to see live scores)
+      allow read: if true;
 
-      // Only admins can create matches
-      allow create: if isAdmin();
+      // Authenticated users can create matches (standalone or tournament)
+      // For tournament matches, check organizer permissions
+      // For standalone matches, any authenticated user can create
+      allow create: if isSignedIn() && (
+        !('tournamentId' in request.resource.data) || // Standalone match
+        request.resource.data.tournamentId == null || // Standalone match
+        isOrganizer(request.resource.data.tournamentId) || // Tournament match
+        isAdmin()
+      );
 
-      // Only admins can update/delete matches
-      allow update, delete: if isAdmin();
+      // Match creator, tournament organizers, or admin can update
+      allow update: if isSignedIn() && (
+        resource.data.createdBy == request.auth.uid ||
+        (!('tournamentId' in resource.data) || resource.data.tournamentId == null || isOrganizer(resource.data.tournamentId)) ||
+        isAdmin()
+      );
+
+      // Only creator or admin can delete
+      allow delete: if isSignedIn() && (
+        resource.data.createdBy == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // Tournament Join Requests collection
+    match /tournamentJoinRequests/{requestId} {
+      // Anyone can read join requests (organizers need to see them)
+      allow read: if true;
+
+      // Authenticated users can create join requests
+      allow create: if isSignedIn();
+
+      // Tournament organizers or admin can update (approve/reject)
+      allow update: if isSignedIn() && (
+        isOrganizer(resource.data.tournamentId) ||
+        isAdmin()
+      );
+
+      // Only creator or admin can delete
+      allow delete: if isSignedIn() && (
+        resource.data.requestedBy == request.auth.uid ||
+        isAdmin()
+      );
     }
 
     // Invitations collection

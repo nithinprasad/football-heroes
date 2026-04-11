@@ -30,8 +30,11 @@ jobs:
           cache: 'npm'
 
       # 3. Install dependencies (fixes Rollup optional dependency issue)
+      - name: Renove Lock
+        run: rm -f packagelock.json
+      # 3. Install dependencies (fixes Rollup optional dependency issue)
       - name: Install dependencies
-        run: npm ci --include=optional
+        run: npm install
 
       # 4. Build the Vite application
       - name: Build project

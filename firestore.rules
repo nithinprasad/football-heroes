@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']);
+    }
+
+    function isCaptain() {
+      return isSignedIn() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['captain', 'admin']);
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles
+      allow read: if isSignedIn();
+
+      // Users can only write their own profile
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+
+    // Teams collection
+    match /teams/{teamId} {
+      // Anyone authenticated can read teams
+      allow read: if isSignedIn();
+
+      // Only authenticated users can create teams
+      allow create: if isSignedIn();
+
+      // Captain or admin can update/delete team
+      allow update, delete: if isSignedIn() && (
+        resource.data.captainId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // Tournaments collection
+    match /tournaments/{tournamentId} {
+      // Anyone authenticated can read tournaments
+      allow read: if isSignedIn();
+
+      // Only admins can create tournaments
+      allow create: if isAdmin();
+
+      // Tournament creator or admin can update/delete
+      allow update, delete: if isSignedIn() && (
+        resource.data.createdBy == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // Matches collection
+    match /matches/{matchId} {
+      // Anyone authenticated can read matches
+      allow read: if isSignedIn();
+
+      // Only admins can create matches
+      allow create: if isAdmin();
+
+      // Only admins can update/delete matches
+      allow update, delete: if isAdmin();
+    }
+
+    // Invitations collection
+    match /invitations/{invitationId} {
+      // Users can read their own invitations
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.createdBy == request.auth.uid ||
+        resource.data.mobileNumber == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.mobileNumber
+      );
+
+      // Captains and admins can create invitations
+      allow create: if isCaptain();
+
+      // Users can update their own invitations (accept/decline)
+      // Creators can also update their invitations
+      allow update: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.createdBy == request.auth.uid ||
+        resource.data.mobileNumber == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.mobileNumber
+      );
+
+      // Only creators or admins can delete
+      allow delete: if isSignedIn() && (
+        resource.data.createdBy == request.auth.uid ||
+        isAdmin()
+      );
+    }
+  }
+}

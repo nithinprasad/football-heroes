@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  setDoc,
   getDoc,
   getDocs,
   query,
@@ -81,13 +82,19 @@ class UserService {
   async updateUser(userId: string, data: Partial<User>): Promise<void> {
     try {
       const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
+      const updateData: any = {
         ...data,
         updatedAt: serverTimestamp(),
-      });
-    } catch (error) {
-      console.error('Error updating user:', error);
-      throw new Error('Failed to update user profile');
+      };
+
+      console.log('Updating user:', userId, 'with data:', updateData);
+      await updateDoc(userRef, updateData);
+      console.log('✅ User updated successfully:', userId);
+    } catch (error: any) {
+      console.error('❌ Error updating user:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      throw error; // Re-throw original error for better debugging
     }
   }
 
@@ -114,20 +121,43 @@ class UserService {
    * Add team to user's team list
    */
   async addTeamToUser(userId: string, teamId: string): Promise<void> {
-    try {
-      const user = await this.getUserById(userId);
-      if (!user) {
-        throw new Error('User not found');
-      }
+    console.log('🔵 Adding team', teamId, 'to user', userId);
 
-      if (!user.teamIds.includes(teamId)) {
-        await this.updateUser(userId, {
-          teamIds: [...user.teamIds, teamId],
-        });
-      }
-    } catch (error) {
-      console.error('Error adding team to user:', error);
-      throw new Error('Failed to add team to user');
+    let user = await this.getUserById(userId);
+
+    // If user doesn't exist in Firestore, create a basic profile
+    if (!user) {
+      console.log('⚠️ User document not found, creating one for:', userId);
+      const userRef = doc(db, 'users', userId);
+      await setDoc(userRef, {
+        id: userId,
+        name: 'User',
+        mobileNumber: '',
+        roles: ['player'],
+        teamIds: [teamId],
+        statistics: {
+          matches: 0,
+          goals: 0,
+          assists: 0,
+          cleanSheets: 0,
+          yellowCards: 0,
+          redCards: 0,
+        },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      console.log('✅ Basic profile created with team');
+      return;
+    }
+
+    if (!user.teamIds.includes(teamId)) {
+      console.log('🔄 User exists, updating teamIds. Current teams:', user.teamIds);
+      await this.updateUser(userId, {
+        teamIds: [...user.teamIds, teamId],
+      });
+      console.log('✅ Team added to user successfully');
+    } else {
+      console.log('ℹ️ User already has this team');
     }
   }
 
@@ -164,10 +194,15 @@ class UserService {
     }
   ): Promise<void> {
     try {
+      console.log(`📈 Updating stats for user ${userId}:`, stats);
+
       const user = await this.getUserById(userId);
       if (!user) {
+        console.error(`❌ User not found: ${userId}`);
         throw new Error('User not found');
       }
+
+      console.log(`Current stats for ${user.name}:`, user.statistics);
 
       const updatedStats = {
         matches: user.statistics.matches + 1,
@@ -178,10 +213,97 @@ class UserService {
         cleanSheets: user.statistics.cleanSheets + (stats.cleanSheets || 0),
       };
 
+      console.log(`New stats for ${user.name}:`, updatedStats);
+
       await this.updateUser(userId, { statistics: updatedStats });
+      console.log(`✅ Stats updated successfully for ${user.name}`);
     } catch (error) {
       console.error('Error updating user stats:', error);
       throw new Error('Failed to update user statistics');
+    }
+  }
+
+  /**
+   * Create an unverified user by phone number (for managers adding players)
+   */
+  async createUnverifiedUser(mobileNumber: string, name?: string): Promise<string> {
+    try {
+      // Check if user already exists
+      const existingUser = await this.getUserByMobileNumber(mobileNumber);
+      if (existingUser) {
+        return existingUser.id;
+      }
+
+      // Create a unique ID for unverified user (using phone number as base)
+      const userId = `unverified_${mobileNumber.replace(/\+/g, '')}`;
+      const userRef = doc(db, 'users', userId);
+
+      await setDoc(userRef, {
+        id: userId,
+        name: name || `User ${mobileNumber}`,
+        mobileNumber,
+        roles: ['player'],
+        teamIds: [],
+        statistics: {
+          matches: 0,
+          goals: 0,
+          assists: 0,
+          cleanSheets: 0,
+          yellowCards: 0,
+          redCards: 0,
+        },
+        isVerified: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      return userId;
+    } catch (error) {
+      console.error('Error creating unverified user:', error);
+      throw new Error('Failed to create unverified user');
+    }
+  }
+
+  /**
+   * Verify and merge an unverified user profile with authenticated user
+   */
+  async verifyUser(mobileNumber: string, authenticatedUserId: string): Promise<void> {
+    try {
+      // Find unverified user by phone number
+      const unverifiedUserId = `unverified_${mobileNumber.replace(/\+/g, '')}`;
+      const unverifiedUser = await this.getUserById(unverifiedUserId);
+
+      if (!unverifiedUser) {
+        // No unverified profile exists, nothing to merge
+        return;
+      }
+
+      // Get authenticated user
+      const authUser = await this.getUserById(authenticatedUserId);
+      if (!authUser) {
+        return;
+      }
+
+      // Merge data from unverified to authenticated user
+      await this.updateUser(authenticatedUserId, {
+        teamIds: [...new Set([...authUser.teamIds, ...unverifiedUser.teamIds])],
+        statistics: {
+          matches: authUser.statistics.matches + unverifiedUser.statistics.matches,
+          goals: authUser.statistics.goals + unverifiedUser.statistics.goals,
+          assists: authUser.statistics.assists + unverifiedUser.statistics.assists,
+          cleanSheets: authUser.statistics.cleanSheets + unverifiedUser.statistics.cleanSheets,
+          yellowCards: authUser.statistics.yellowCards + unverifiedUser.statistics.yellowCards,
+          redCards: authUser.statistics.redCards + unverifiedUser.statistics.redCards,
+        },
+        isVerified: true,
+      });
+
+      // TODO: Update all references to unverified user ID with authenticated user ID
+      // This would involve updating team rosters, match stats, etc.
+      // For now, we'll leave the unverified profile as is for reference
+    } catch (error) {
+      console.error('Error verifying user:', error);
+      throw new Error('Failed to verify user');
     }
   }
 
@@ -199,6 +321,37 @@ class UserService {
       querySnapshot.forEach((doc) => {
         const user = { ...doc.data(), id: doc.id } as User;
         if (user.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+          users.push(user);
+        }
+      });
+
+      return users;
+    } catch (error) {
+      console.error('Error searching users:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Search users by name or phone number
+   */
+  async searchUsers(searchTerm: string): Promise<User[]> {
+    try {
+      const querySnapshot = await getDocs(this.usersCollection);
+      const users: User[] = [];
+      const search = searchTerm.toLowerCase().replace(/\s+/g, '');
+
+      querySnapshot.forEach((doc) => {
+        const user = { ...doc.data(), id: doc.id } as User;
+        const userName = (user.name || '').toLowerCase();
+        const userPhone = (user.mobileNumber || '').replace(/\s+/g, '').replace(/\D/g, '');
+        const searchPhone = searchTerm.replace(/\s+/g, '').replace(/\D/g, '');
+
+        // Match by name or phone number
+        if (
+          userName.includes(searchTerm.toLowerCase()) ||
+          userPhone.includes(searchPhone)
+        ) {
           users.push(user);
         }
       });

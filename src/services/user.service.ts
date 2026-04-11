@@ -284,6 +284,8 @@ class UserService {
         return;
       }
 
+      console.log(`🔄 Merging unverified user ${unverifiedUserId} into ${authenticatedUserId}`);
+
       // Merge data from unverified to authenticated user
       await this.updateUser(authenticatedUserId, {
         teamIds: [...new Set([...authUser.teamIds, ...unverifiedUser.teamIds])],
@@ -298,12 +300,102 @@ class UserService {
         isVerified: true,
       });
 
-      // TODO: Update all references to unverified user ID with authenticated user ID
-      // This would involve updating team rosters, match stats, etc.
-      // For now, we'll leave the unverified profile as is for reference
+      // Update all references to unverified user ID with authenticated user ID
+      await this.updateUserReferences(unverifiedUserId, authenticatedUserId);
+
+      console.log(`✅ Successfully merged and updated all references`);
     } catch (error) {
       console.error('Error verifying user:', error);
       throw new Error('Failed to verify user');
+    }
+  }
+
+  /**
+   * Update all references to old user ID with new user ID
+   * This includes teams (playerIds, managerId, captainId) and matches
+   */
+  private async updateUserReferences(oldUserId: string, newUserId: string): Promise<void> {
+    try {
+      console.log(`🔄 Updating references from ${oldUserId} to ${newUserId}`);
+
+      // Update team references
+      const teamsCollection = collection(db, 'teams');
+      const teamsSnapshot = await getDocs(teamsCollection);
+
+      let teamsUpdated = 0;
+      for (const teamDoc of teamsSnapshot.docs) {
+        const team = teamDoc.data();
+        let needsUpdate = false;
+        const updates: any = {};
+
+        // Update playerIds array
+        if (team.playerIds && team.playerIds.includes(oldUserId)) {
+          updates.playerIds = team.playerIds.map((id: string) =>
+            id === oldUserId ? newUserId : id
+          );
+          needsUpdate = true;
+        }
+
+        // Update managerId
+        if (team.managerId === oldUserId) {
+          updates.managerId = newUserId;
+          needsUpdate = true;
+        }
+
+        // Update captainId
+        if (team.captainId === oldUserId) {
+          updates.captainId = newUserId;
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          await updateDoc(doc(db, 'teams', teamDoc.id), {
+            ...updates,
+            updatedAt: serverTimestamp(),
+          });
+          teamsUpdated++;
+          console.log(`✅ Updated team ${teamDoc.id}`);
+        }
+      }
+
+      // Update match player stats
+      const matchesCollection = collection(db, 'matches');
+      const matchesSnapshot = await getDocs(matchesCollection);
+
+      let matchesUpdated = 0;
+      for (const matchDoc of matchesSnapshot.docs) {
+        const match = matchDoc.data();
+        let needsUpdate = false;
+        const updates: any = {};
+
+        // Update playerStats array
+        if (match.playerStats && Array.isArray(match.playerStats)) {
+          const updatedStats = match.playerStats.map((stat: any) => {
+            if (stat.playerId === oldUserId) {
+              return { ...stat, playerId: newUserId };
+            }
+            return stat;
+          });
+          if (JSON.stringify(updatedStats) !== JSON.stringify(match.playerStats)) {
+            updates.playerStats = updatedStats;
+            needsUpdate = true;
+          }
+        }
+
+        if (needsUpdate) {
+          await updateDoc(doc(db, 'matches', matchDoc.id), {
+            ...updates,
+            updatedAt: serverTimestamp(),
+          });
+          matchesUpdated++;
+          console.log(`✅ Updated match ${matchDoc.id}`);
+        }
+      }
+
+      console.log(`✅ Updated ${teamsUpdated} teams and ${matchesUpdated} matches`);
+    } catch (error) {
+      console.error('Error updating user references:', error);
+      throw error;
     }
   }
 

@@ -25,9 +25,9 @@ jobs:
           cache: 'npm'
 
       # 3. Install dependencies (fixes Rollup optional dependency issue)
-      - name: Renove Lock
-        run: rm -f packagelock.json
-        
+      - name: Remove Lock
+        run: rm -f package-lock.json
+
       # 3. Install dependencies (fixes Rollup optional dependency issue)
       - name: Install dependencies
         run: npm install

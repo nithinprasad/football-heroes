@@ -440,12 +440,12 @@ const ManageTeamsModal = ({ tournamentId, onClose, onUpdate }: ManageTeamsModalP
                     ? handleCreateNewTeam(searchQuery)
                     : null
                 }
-                disabled={
+                disabled={Boolean(
                   creatingTeam ||
                   (!selectedTeam && !searchQuery) ||
                   (selectedTeam && !selectedTeam.managerId && !managerPhone.trim()) ||
                   (!selectedTeam && searchQuery && !managerPhone.trim())
-                }
+                )}
                 className="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {creatingTeam

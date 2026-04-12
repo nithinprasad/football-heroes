@@ -181,8 +181,8 @@ function JoinTeam() {
                   onClick={handleJoinRequest}
                   disabled={
                     requesting ||
-                    (currentUser && team.playerIds.includes(currentUser.uid)) ||
-                    (currentUser && !!team.joinRequests?.find((r) => r.playerId === currentUser.uid && r.status === 'PENDING'))
+                    Boolean(currentUser && team.playerIds.includes(currentUser.uid)) ||
+                    Boolean(currentUser && team.joinRequests?.find((r) => r.playerId === currentUser.uid && r.status === 'PENDING'))
                   }
                   className="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg flex items-center justify-center gap-2"
                 >

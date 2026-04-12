@@ -743,13 +743,30 @@ function TournamentDetail() {
             {standings?.groupStandings && (
               <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden">
                 <div className="px-6 py-4 bg-slate-900/50 border-b border-white/10">
-                  <h2 className="text-xl md:text-2xl font-bold text-white">Group Standings</h2>
+                  <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                    🏆 Group Standings
+                  </h2>
+                  <p className="text-sm text-slate-400 mt-1">
+                    Individual standings for each group
+                  </p>
                 </div>
               <div className="p-4 md:p-6 space-y-6 md:space-y-8">
-                {Object.entries(standings.groupStandings).map(([groupName, groupData]: [string, any]) => (
-                  <div key={groupName}>
-                    <h3 className="text-xl md:text-2xl font-bold text-white mb-4">{groupName}</h3>
-                    <div className="overflow-x-auto">
+                {Object.entries(standings.groupStandings).map(([groupName, groupData]: [string, any], groupIndex) => {
+                  const totalMatches = groupData.reduce((sum: number, team: any) => sum + team.matchesPlayed, 0) / 2;
+                  const groupColors = ['bg-blue-500/10 border-blue-500/30', 'bg-green-500/10 border-green-500/30', 'bg-purple-500/10 border-purple-500/30', 'bg-orange-500/10 border-orange-500/30'];
+                  const groupColor = groupColors[groupIndex % groupColors.length];
+
+                  return (
+                    <div key={groupName} className={`rounded-2xl border ${groupColor} p-4 md:p-6`}>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                          {groupName}
+                        </h3>
+                        <div className="text-sm text-slate-400">
+                          {groupData.length} teams • {totalMatches} matches played
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto">
                       <table className="w-full text-xs md:text-sm">
                         <thead className="bg-slate-900/50">
                           <tr className="text-slate-400">
@@ -792,8 +809,9 @@ function TournamentDetail() {
                         </tbody>
                       </table>
                     </div>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
               </div>
             )}

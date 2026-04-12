@@ -114,27 +114,34 @@ function TournamentDetail() {
         });
         setTeams(teamsMap);
 
-        // Calculate standings
+        // Calculate standings (show all teams even with 0 matches played)
         const completedMatches = matchesData.filter((m) => m.status === 'COMPLETED');
         console.log('📊 Calculating standings:', {
           totalMatches: matchesData.length,
           completedMatches: completedMatches.length,
+          totalTeams: tournamentData.teamIds.length,
           matchStatuses: matchesData.map(m => ({ id: m.id, status: m.status }))
         });
 
-        if (completedMatches.length > 0) {
-          const standingsData = StandingsCalculator.calculateStandings(
-            completedMatches,
-            tournamentData.pointsForWin,
-            tournamentData.pointsForDraw,
-            tournamentData.pointsForLoss
+        // Always calculate standings with all tournament teams
+        const standingsData = StandingsCalculator.calculateStandings(
+          completedMatches.length > 0 ? completedMatches : matchesData, // Use all matches to detect groups
+          tournamentData.pointsForWin,
+          tournamentData.pointsForDraw,
+          tournamentData.pointsForLoss,
+          tournamentData.teamIds // Pass all team IDs to initialize standings
+        );
+
+        // For group tournaments, also calculate combined standings
+        if (standingsData.groupStandings) {
+          const combinedStandings = StandingsCalculator.calculateCombinedStandings(
+            standingsData.groupStandings
           );
-          console.log('✅ Standings calculated:', standingsData);
-          setStandings(standingsData);
-        } else {
-          console.log('ℹ️ No completed matches yet, standings will appear after first match');
-          setStandings(null);
+          standingsData.overallStandings = combinedStandings;
         }
+
+        console.log('✅ Standings calculated:', standingsData);
+        setStandings(standingsData);
 
           // Calculate top scorers from match stats
           const scorersMap: any = {};
@@ -517,40 +524,7 @@ function TournamentDetail() {
               </div>
             </div>
 
-            {standings.groupStandings ? (
-              <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {Object.entries(standings.groupStandings).slice(0, 4).map(([groupName, groupData]: [string, any]) => (
-                  <div key={groupName}>
-                    <h3 className="text-lg font-bold text-white mb-3">{groupName}</h3>
-                    <div className="space-y-2">
-                      {groupData.slice(0, 4).map((standing: any, idx: number) => (
-                        <div
-                          key={standing.teamId}
-                          className={`flex items-center justify-between p-3 rounded-lg ${
-                            idx === 0 ? 'bg-green-500/10 border border-green-500/30' : 'bg-slate-900/30'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            <span className="text-sm font-bold text-slate-400 w-6">{standing.position}</span>
-                            <Link
-                              to={`/teams/${standing.teamId}`}
-                              className="font-medium text-white hover:text-green-400 transition-colors truncate"
-                            >
-                              {teams[standing.teamId]?.name || standing.teamId}
-                            </Link>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm">
-                            <span className="text-slate-400">{standing.matchesPlayed}P</span>
-                            <span className="text-green-400">{standing.wins}W</span>
-                            <span className="font-bold text-green-400 min-w-[2rem] text-right">{standing.points}pts</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : standings.overallStandings ? (
+            {standings.overallStandings ? (
               <div className="p-4 md:p-6">
                 <div className="space-y-2">
                   {standings.overallStandings.slice(0, 5).map((standing: any, idx: number) => (
@@ -710,13 +684,67 @@ function TournamentDetail() {
         )}
 
         {activeTab === 'standings' && (
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden">
-            {!standings ? (
-              <div className="p-8 md:p-12 text-center text-slate-400">
-                <div className="text-6xl mb-4 opacity-30">📊</div>
-                <p className="text-sm md:text-base">Standings will appear after matches are completed</p>
+          <>
+            {/* Combined/Overall Standings (shown first) */}
+            {standings?.overallStandings && (
+              <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden mb-6 md:mb-8">
+                <div className="px-6 py-4 bg-slate-900/50 border-b border-white/10">
+                  <h2 className="text-xl md:text-2xl font-bold text-white">
+                    {standings.groupStandings ? 'Overall Standings (All Teams)' : 'Standings'}
+                  </h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs md:text-sm">
+                    <thead className="bg-slate-900/50">
+                      <tr className="text-slate-400">
+                        <th className="px-3 md:px-4 py-2 md:py-3 text-left font-bold">Pos</th>
+                        <th className="px-3 md:px-4 py-2 md:py-3 text-left font-bold">Team</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">P</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">W</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">D</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">L</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">GF</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">GA</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">GD</th>
+                        <th className="px-3 md:px-4 py-2 md:py-3 text-center font-bold text-green-400">Pts</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {standings.overallStandings.map((standing: any, idx: number) => (
+                        <tr
+                          key={standing.teamId}
+                          className={`border-t border-white/5 hover:bg-slate-900/30 transition-colors ${
+                            idx === 0 && standing.points > 0 ? 'bg-green-500/5' : ''
+                          }`}
+                        >
+                          <td className="px-3 md:px-4 py-3 font-bold text-white">{standing.position}</td>
+                          <td className="px-3 md:px-4 py-3 font-medium text-white">
+                            <Link to={`/teams/${standing.teamId}`} className="hover:text-green-400 transition-colors">
+                              {teams[standing.teamId]?.name || standing.teamId}
+                            </Link>
+                          </td>
+                          <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.matchesPlayed}</td>
+                          <td className="px-2 md:px-3 py-3 text-center text-green-400">{standing.wins}</td>
+                          <td className="px-2 md:px-3 py-3 text-center text-yellow-400">{standing.draws}</td>
+                          <td className="px-2 md:px-3 py-3 text-center text-red-400">{standing.losses}</td>
+                          <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.goalsFor}</td>
+                          <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.goalsAgainst}</td>
+                          <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.goalDifference > 0 ? '+' : ''}{standing.goalDifference}</td>
+                          <td className="px-3 md:px-4 py-3 text-center font-black text-green-400 text-base md:text-lg">{standing.points}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            ) : standings.groupStandings ? (
+            )}
+
+            {/* Group Standings (if groups exist) */}
+            {standings?.groupStandings && (
+              <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden">
+                <div className="px-6 py-4 bg-slate-900/50 border-b border-white/10">
+                  <h2 className="text-xl md:text-2xl font-bold text-white">Group Standings</h2>
+                </div>
               <div className="p-4 md:p-6 space-y-6 md:space-y-8">
                 {Object.entries(standings.groupStandings).map(([groupName, groupData]: [string, any]) => (
                   <div key={groupName}>
@@ -767,52 +795,8 @@ function TournamentDetail() {
                   </div>
                 ))}
               </div>
-            ) : standings.overallStandings ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs md:text-sm">
-                  <thead className="bg-slate-900/50">
-                    <tr className="text-slate-400">
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left font-bold">Pos</th>
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left font-bold">Team</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">P</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">W</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">D</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">L</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">GF</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">GA</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">GD</th>
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-center font-bold text-green-400">Pts</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {standings.overallStandings.map((standing: any, idx: number) => (
-                      <tr
-                        key={standing.teamId}
-                        className={`border-t border-white/5 hover:bg-slate-900/30 transition-colors ${
-                          idx === 0 ? 'bg-green-500/5' : ''
-                        }`}
-                      >
-                        <td className="px-3 md:px-4 py-3 font-bold text-white">{standing.position}</td>
-                        <td className="px-3 md:px-4 py-3 font-medium text-white">
-                          <Link to={`/teams/${standing.teamId}`} className="hover:text-green-400 transition-colors">
-                            {teams[standing.teamId]?.name || standing.teamId}
-                          </Link>
-                        </td>
-                        <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.matchesPlayed}</td>
-                        <td className="px-2 md:px-3 py-3 text-center text-green-400">{standing.wins}</td>
-                        <td className="px-2 md:px-3 py-3 text-center text-yellow-400">{standing.draws}</td>
-                        <td className="px-2 md:px-3 py-3 text-center text-red-400">{standing.losses}</td>
-                        <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.goalsFor}</td>
-                        <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.goalsAgainst}</td>
-                        <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.goalDifference > 0 ? '+' : ''}{standing.goalDifference}</td>
-                        <td className="px-3 md:px-4 py-3 text-center font-black text-green-400 text-base md:text-lg">{standing.points}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : null}
-          </div>
+            )}
+          </>
         )}
 
         {activeTab === 'stats' && (

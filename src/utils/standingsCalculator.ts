@@ -8,7 +8,8 @@ export class StandingsCalculator {
     matches: Match[],
     pointsForWin: number = 3,
     pointsForDraw: number = 1,
-    pointsForLoss: number = 0
+    pointsForLoss: number = 0,
+    allTeamIds?: string[]
   ): TournamentStandings {
     const completedMatches = matches.filter((m) => m.status === 'COMPLETED');
 
@@ -20,14 +21,16 @@ export class StandingsCalculator {
         completedMatches,
         pointsForWin,
         pointsForDraw,
-        pointsForLoss
+        pointsForLoss,
+        allTeamIds
       );
     } else {
       return this.calculateOverallStandings(
         completedMatches,
         pointsForWin,
         pointsForDraw,
-        pointsForLoss
+        pointsForLoss,
+        allTeamIds
       );
     }
   }
@@ -39,9 +42,17 @@ export class StandingsCalculator {
     matches: Match[],
     pointsForWin: number,
     pointsForDraw: number,
-    pointsForLoss: number
+    pointsForLoss: number,
+    allTeamIds?: string[]
   ): TournamentStandings {
     const teamStats = new Map<string, TeamStanding>();
+
+    // Initialize all teams if provided
+    if (allTeamIds) {
+      allTeamIds.forEach((teamId) => {
+        teamStats.set(teamId, this.initializeTeamStanding(teamId));
+      });
+    }
 
     // Process each match
     matches.forEach((match) => {
@@ -70,17 +81,36 @@ export class StandingsCalculator {
     matches: Match[],
     pointsForWin: number,
     pointsForDraw: number,
-    pointsForLoss: number
+    pointsForLoss: number,
+    allTeamIds?: string[]
   ): TournamentStandings {
     const groupStandings: { [groupName: string]: TeamStanding[] } = {};
     const groupTeamStats = new Map<string, Map<string, TeamStanding>>();
 
-    // Initialize groups
+    // Initialize groups from matches
     matches.forEach((match) => {
       if (match.groupName && !groupTeamStats.has(match.groupName)) {
         groupTeamStats.set(match.groupName, new Map());
       }
     });
+
+    // Initialize all teams if provided
+    if (allTeamIds) {
+      // If no groups exist yet, create a default group
+      if (groupTeamStats.size === 0) {
+        groupTeamStats.set('All Teams', new Map());
+      }
+
+      // Distribute teams to groups or add all to default group
+      const groupNames = Array.from(groupTeamStats.keys());
+      allTeamIds.forEach((teamId, index) => {
+        const groupName = groupNames[index % groupNames.length];
+        const groupStats = groupTeamStats.get(groupName)!;
+        if (!groupStats.has(teamId)) {
+          groupStats.set(teamId, this.initializeTeamStanding(teamId));
+        }
+      });
+    }
 
     // Process each match
     matches.forEach((match) => {
@@ -223,6 +253,25 @@ export class StandingsCalculator {
     });
 
     return sorted;
+  }
+
+  /**
+   * Calculate combined standings across all groups
+   */
+  static calculateCombinedStandings(
+    groupStandings: { [groupName: string]: TeamStanding[] }
+  ): TeamStanding[] {
+    const allTeams: TeamStanding[] = [];
+
+    // Collect all teams from all groups
+    Object.values(groupStandings).forEach((standings) => {
+      standings.forEach((team) => {
+        allTeams.push({ ...team });
+      });
+    });
+
+    // Sort combined standings
+    return this.sortStandings(allTeams);
   }
 
   /**

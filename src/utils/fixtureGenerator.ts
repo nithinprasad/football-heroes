@@ -47,6 +47,7 @@ export class FixtureGenerator {
           matchDate: new Date(matchDate),
           venue,
           stage: 'GROUP',
+          groupName: 'League', // Add groupName for LEAGUE format
           matchNumber,
         }));
 

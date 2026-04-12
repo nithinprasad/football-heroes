@@ -17,7 +17,7 @@ import { handleError } from '../utils/errorHandler';
 function TournamentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, loading: authLoading } = useAuth();
   const toast = useToast();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -343,7 +343,7 @@ function TournamentDetail() {
           </div>
 
           {/* Organizer Controls */}
-          {isOrganizer && (
+          {!authLoading && isOrganizer && (
             <div className="mt-6 pt-6 border-t border-white/10">
               <div className="flex items-center gap-2 mb-4">
                 <span className="px-3 py-1 bg-purple-500/20 border border-purple-500/30 rounded-full text-purple-400 text-sm font-bold">

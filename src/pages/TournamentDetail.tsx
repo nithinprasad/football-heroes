@@ -44,6 +44,31 @@ function TournamentDetail() {
     }
   }, [id, currentUser, userProfile]);
 
+  // Auto-refresh data when user returns to the page
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && id) {
+        console.log('🔄 Page visible again, refreshing tournament data...');
+        loadTournamentData();
+      }
+    };
+
+    const handleFocus = () => {
+      if (id) {
+        console.log('🔄 Window focused, refreshing tournament data...');
+        loadTournamentData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [id]);
+
   const loadTournamentData = async () => {
     try {
       const [tournamentData, matchesData] = await Promise.all([
@@ -91,6 +116,12 @@ function TournamentDetail() {
 
         // Calculate standings
         const completedMatches = matchesData.filter((m) => m.status === 'COMPLETED');
+        console.log('📊 Calculating standings:', {
+          totalMatches: matchesData.length,
+          completedMatches: completedMatches.length,
+          matchStatuses: matchesData.map(m => ({ id: m.id, status: m.status }))
+        });
+
         if (completedMatches.length > 0) {
           const standingsData = StandingsCalculator.calculateStandings(
             completedMatches,
@@ -98,7 +129,12 @@ function TournamentDetail() {
             tournamentData.pointsForDraw,
             tournamentData.pointsForLoss
           );
+          console.log('✅ Standings calculated:', standingsData);
           setStandings(standingsData);
+        } else {
+          console.log('ℹ️ No completed matches yet, standings will appear after first match');
+          setStandings(null);
+        }
 
           // Calculate top scorers from match stats
           const scorersMap: any = {};
@@ -462,12 +498,24 @@ function TournamentDetail() {
               <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
                 📊 Current Standings
               </h2>
-              <button
-                onClick={() => setActiveTab('standings')}
-                className="text-sm text-green-400 hover:text-green-300 font-medium"
-              >
-                View Full →
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={async () => {
+                    await loadTournamentData();
+                    toast.success('Standings refreshed!', 'Refreshed');
+                  }}
+                  className="text-sm text-blue-400 hover:text-blue-300 font-medium"
+                  title="Refresh standings"
+                >
+                  🔄 Refresh
+                </button>
+                <button
+                  onClick={() => setActiveTab('standings')}
+                  className="text-sm text-green-400 hover:text-green-300 font-medium"
+                >
+                  View Full →
+                </button>
+              </div>
             </div>
 
             {standings.groupStandings ? (

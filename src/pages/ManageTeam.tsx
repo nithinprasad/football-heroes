@@ -110,22 +110,32 @@ function ManageTeam() {
 
       setSearchResults(availablePlayers);
 
-      // If no results, show option to create new player
-      if (availablePlayers.length === 0) {
+      // Determine if search query is a phone number
+      // Phone number: contains mostly digits, at least 8 digits
+      const digitsOnly = searchQuery.replace(/\D/g, '');
+      const isPhoneNumber = digitsOnly.length >= 8;
+
+      // Check if there's an exact match in results
+      const hasExactMatch = availablePlayers.some((user) => {
+        if (isPhoneNumber) {
+          const userPhone = (user.mobileNumber || '').replace(/\D/g, '');
+          return userPhone === digitsOnly;
+        } else {
+          const userName = (user.name || '').toLowerCase().trim();
+          const searchName = searchQuery.toLowerCase().trim();
+          return userName === searchName;
+        }
+      });
+
+      // Show create option if no results OR no exact match
+      if (availablePlayers.length === 0 || !hasExactMatch) {
         setCreatingNew(true);
 
-        // Auto-populate based on search query
-        // If search query is mostly digits (phone number), pre-fill phone
-        // If search query is text (name), pre-fill name
-        const isPhoneNumber = /^\+?\d[\d\s-]{8,}$/.test(searchQuery.trim());
-
+        // Auto-populate based on search query type
         if (isPhoneNumber) {
-          // Extract just the numbers
-          const cleanPhone = searchQuery.replace(/\D/g, '');
-          setNewPlayerPhone(cleanPhone);
+          setNewPlayerPhone(digitsOnly);
           setNewPlayerName('');
         } else {
-          // Treat as name
           setNewPlayerName(searchQuery.trim());
           setNewPlayerPhone('');
         }
@@ -417,7 +427,7 @@ function ManageTeam() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="e.g., John Doe or +919876543210"
+                    placeholder="e.g., John Doe or 9876543210"
                     className="w-full px-4 py-3 pr-10 bg-slate-800 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
                   />
                   {searchQuery && (
@@ -446,14 +456,27 @@ function ManageTeam() {
                     Type at least 2 characters to search
                   </p>
                 )}
+                {searchQuery.trim().length >= 2 && !searching && (
+                  <p className="text-xs text-slate-400 mt-2">
+                    {searchQuery.replace(/\D/g, '').length >= 8 ? (
+                      <span className="flex items-center gap-1">
+                        <span>📱</span> Searching by phone number
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <span>👤</span> Searching by name
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
 
               {/* Search Results */}
               {searchResults.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-sm font-medium text-green-400 mb-3 flex items-center gap-2">
-                    <span>✓</span>
-                    Found {searchResults.length} player{searchResults.length !== 1 ? 's' : ''}
+                  <p className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
+                    <span className="text-blue-400">🔍</span>
+                    {searchResults.length} similar player{searchResults.length !== 1 ? 's' : ''} found
                   </p>
                   <div className="space-y-2">
                     {searchResults.map((user) => (
@@ -503,18 +526,21 @@ function ManageTeam() {
               {creatingNew && searchQuery.trim().length >= 2 && (
                 <div className="p-4 md:p-6 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/30 rounded-2xl">
                   <div className="flex items-start gap-3 mb-4">
-                    <div className="text-3xl">👤</div>
+                    <div className="text-3xl">➕</div>
                     <div>
                       <p className="text-blue-400 font-bold text-lg mb-1">
-                        Player Not Found
+                        {searchResults.length > 0 ? 'Not the right player?' : 'Player Not Found'}
                       </p>
                       <p className="text-slate-300 text-sm">
-                        {newPlayerName ?
-                          `Create new profile for "${newPlayerName}"` :
-                          newPlayerPhone ?
-                            `Create new profile with phone number` :
-                            `Create a new player profile`
-                        }
+                        {searchResults.length > 0 ? (
+                          <>Create a new profile instead</>
+                        ) : newPlayerName ? (
+                          <>Create new profile for <strong>"{newPlayerName}"</strong></>
+                        ) : newPlayerPhone ? (
+                          <>Create new profile with <strong>{newPlayerPhone}</strong></>
+                        ) : (
+                          <>Create a new player profile</>
+                        )}
                       </p>
                     </div>
                   </div>

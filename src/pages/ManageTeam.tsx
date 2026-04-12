@@ -113,6 +113,22 @@ function ManageTeam() {
       // If no results, show option to create new player
       if (availablePlayers.length === 0) {
         setCreatingNew(true);
+
+        // Auto-populate based on search query
+        // If search query is mostly digits (phone number), pre-fill phone
+        // If search query is text (name), pre-fill name
+        const isPhoneNumber = /^\+?\d[\d\s-]{8,}$/.test(searchQuery.trim());
+
+        if (isPhoneNumber) {
+          // Extract just the numbers
+          const cleanPhone = searchQuery.replace(/\D/g, '');
+          setNewPlayerPhone(cleanPhone);
+          setNewPlayerName('');
+        } else {
+          // Treat as name
+          setNewPlayerName(searchQuery.trim());
+          setNewPlayerPhone('');
+        }
       } else {
         setCreatingNew(false);
       }
@@ -176,11 +192,13 @@ function ManageTeam() {
         'Success!'
       );
 
+      // Reset all form states
       setShowAddPlayer(false);
       setSearchQuery('');
       setNewPlayerName('');
       setNewPlayerPhone('');
       setSearchResults([]);
+      setCreatingNew(false);
       setCreatingNew(false);
 
       // Reload team data (non-critical - don't fail if this errors)
@@ -364,7 +382,17 @@ function ManageTeam() {
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-black text-white">Players ({players.length})</h2>
             <button
-              onClick={() => setShowAddPlayer(!showAddPlayer)}
+              onClick={() => {
+                setShowAddPlayer(!showAddPlayer);
+                if (showAddPlayer) {
+                  // Reset all states when closing
+                  setSearchQuery('');
+                  setSearchResults([]);
+                  setCreatingNew(false);
+                  setNewPlayerName('');
+                  setNewPlayerPhone('');
+                }
+              }}
               className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all"
             >
               {showAddPlayer ? '✕ Cancel' : '+ Add Player'}
@@ -373,77 +401,150 @@ function ManageTeam() {
 
           {/* Add Player Section */}
           {showAddPlayer && (
-            <div className="mb-6 p-6 bg-slate-900/50 rounded-2xl border border-white/10">
-              <h3 className="text-lg font-bold text-white mb-4">Add Player to Team</h3>
+            <div className="mb-6 p-4 md:p-6 bg-slate-900/50 rounded-2xl border border-white/10">
+              <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span className="text-2xl">🔍</span>
+                Add Player to Team
+              </h3>
 
               {/* Search Input */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Search by name or phone number
                 </label>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Enter name or phone number..."
-                  className="w-full px-4 py-3 bg-slate-800 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="e.g., John Doe or +919876543210"
+                    className="w-full px-4 py-3 pr-10 bg-slate-800 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchResults([]);
+                        setCreatingNew(false);
+                        setNewPlayerName('');
+                        setNewPlayerPhone('');
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
                 {searching && (
-                  <p className="text-sm text-slate-400 mt-2">Searching...</p>
+                  <div className="flex items-center gap-2 mt-2 text-sm text-blue-400">
+                    <div className="w-3 h-3 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin"></div>
+                    Searching players...
+                  </div>
+                )}
+                {searchQuery.trim().length > 0 && searchQuery.trim().length < 2 && (
+                  <p className="text-xs text-slate-400 mt-2">
+                    Type at least 2 characters to search
+                  </p>
                 )}
               </div>
 
               {/* Search Results */}
               {searchResults.length > 0 && (
-                <div className="space-y-2 mb-4">
-                  <p className="text-sm text-slate-400">Search Results:</p>
-                  {searchResults.map((user) => (
-                    <div
-                      key={user.id}
-                      className="flex items-center justify-between p-3 bg-slate-800 rounded-xl border border-white/10"
-                    >
-                      <div>
-                        <p className="text-white font-medium">{user.name || 'No name'}</p>
-                        <p className="text-slate-400 text-sm">{user.mobileNumber}</p>
-                        {user.isVerified === false && (
-                          <span className="inline-block mt-1 px-2 py-0.5 bg-yellow-500/20 border border-yellow-500/30 rounded text-yellow-400 text-xs">
-                            Unverified
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => handleAddExistingPlayer(user.id)}
-                        disabled={adding}
-                        className="px-4 py-2 bg-green-500/20 border border-green-500/30 text-green-400 rounded-lg hover:bg-green-500/30 disabled:opacity-50"
+                <div className="mb-4">
+                  <p className="text-sm font-medium text-green-400 mb-3 flex items-center gap-2">
+                    <span>✓</span>
+                    Found {searchResults.length} player{searchResults.length !== 1 ? 's' : ''}
+                  </p>
+                  <div className="space-y-2">
+                    {searchResults.map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-800 rounded-xl border border-white/10 hover:border-green-500/30 transition-all"
                       >
-                        {adding ? 'Adding...' : 'Add'}
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-bold text-base truncate">
+                            {user.name || 'No name'}
+                          </p>
+                          <p className="text-slate-400 text-sm">{user.mobileNumber}</p>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {user.isVerified === false && (
+                              <span className="inline-block px-2 py-0.5 bg-yellow-500/20 border border-yellow-500/30 rounded text-yellow-400 text-xs font-medium">
+                                ⚠ Unverified
+                              </span>
+                            )}
+                            {user.position && (
+                              <span className="inline-block px-2 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded text-blue-400 text-xs font-medium">
+                                {user.position}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleAddExistingPlayer(user.id)}
+                          disabled={adding}
+                          className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-bold hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg active:scale-95"
+                        >
+                          {adding ? (
+                            <span className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                              Adding...
+                            </span>
+                          ) : (
+                            '+ Add to Team'
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
               {/* Create New Player */}
               {creatingNew && searchQuery.trim().length >= 2 && (
-                <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
-                  <p className="text-blue-400 font-medium mb-4">
-                    No player found. Create new player profile:
-                  </p>
-
-                  <div className="space-y-3">
+                <div className="p-4 md:p-6 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/30 rounded-2xl">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="text-3xl">👤</div>
                     <div>
-                      <label className="block text-sm text-slate-300 mb-2">Name *</label>
+                      <p className="text-blue-400 font-bold text-lg mb-1">
+                        Player Not Found
+                      </p>
+                      <p className="text-slate-300 text-sm">
+                        {newPlayerName ?
+                          `Create new profile for "${newPlayerName}"` :
+                          newPlayerPhone ?
+                            `Create new profile with phone number` :
+                            `Create a new player profile`
+                        }
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Player Name *
+                        {newPlayerName && (
+                          <span className="ml-2 text-xs text-green-400">✓ Auto-filled</span>
+                        )}
+                      </label>
                       <input
                         type="text"
                         value={newPlayerName}
                         onChange={(e) => setNewPlayerName(e.target.value)}
-                        placeholder="Player name"
-                        className="w-full px-4 py-2 bg-slate-800 border border-white/10 rounded-lg text-white"
+                        placeholder="Enter player's full name"
+                        className={`w-full px-4 py-3 bg-slate-800 border rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 transition-all ${
+                          newPlayerName ? 'border-green-500/50' : 'border-white/10'
+                        }`}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm text-slate-300 mb-2">Phone Number *</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Phone Number *
+                        {newPlayerPhone && (
+                          <span className="ml-2 text-xs text-green-400">✓ Auto-filled</span>
+                        )}
+                      </label>
                       <div className="flex gap-2">
                         <select
                           value={countryCode.dialCode}
@@ -451,7 +552,7 @@ function ManageTeam() {
                             const selected = countryCodes.find((c) => c.dialCode === e.target.value);
                             if (selected) setCountryCode(selected);
                           }}
-                          className="w-32 px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-white text-sm"
+                          className="w-32 px-3 py-3 bg-slate-800 border border-white/10 rounded-xl text-white text-sm focus:ring-2 focus:ring-blue-500"
                         >
                           {countryCodes.map((country) => (
                             <option key={country.code} value={country.dialCode}>
@@ -465,21 +566,46 @@ function ManageTeam() {
                           value={newPlayerPhone}
                           onChange={(e) => setNewPlayerPhone(e.target.value.replace(/\D/g, ''))}
                           placeholder="9876543210"
-                          className="flex-1 px-4 py-2 bg-slate-800 border border-white/10 rounded-lg text-white"
+                          className={`flex-1 px-4 py-3 bg-slate-800 border rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 transition-all ${
+                            newPlayerPhone ? 'border-green-500/50' : 'border-white/10'
+                          }`}
                         />
                       </div>
                     </div>
 
-                    <button
-                      onClick={handleCreateAndAddPlayer}
-                      disabled={adding || !newPlayerName.trim() || !newPlayerPhone.trim()}
-                      className="w-full px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-bold hover:from-green-600 hover:to-emerald-700 disabled:opacity-50"
-                    >
-                      {adding ? 'Creating...' : `Create & Add ${newPlayerName || 'Player'}`}
-                    </button>
-                    <p className="text-xs text-slate-400">
-                      Player will be able to sign up later with this phone number and the team will automatically appear in their account.
-                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setCreatingNew(false);
+                          setSearchQuery('');
+                          setNewPlayerName('');
+                          setNewPlayerPhone('');
+                        }}
+                        className="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-medium transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleCreateAndAddPlayer}
+                        disabled={adding || !newPlayerName.trim() || !newPlayerPhone.trim()}
+                        className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+                      >
+                        {adding ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            Creating...
+                          </span>
+                        ) : (
+                          `✓ Create & Add ${newPlayerName || 'Player'}`
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="p-3 bg-slate-800/50 rounded-lg border border-white/10">
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        💡 <strong className="text-slate-300">Note:</strong> Player can sign up later with this phone number. Once they verify their account, the team will automatically appear in their profile.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

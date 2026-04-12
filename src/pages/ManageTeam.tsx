@@ -106,14 +106,9 @@ function ManageTeam() {
       const digitsOnly = searchQuery.replace(/\D/g, '');
       const isPhoneNumber = digitsOnly.length >= 8;
 
-      // If phone search, prepend country code for the search
-      let searchTerm = searchQuery;
-      if (isPhoneNumber) {
-        // Search with full international number
-        searchTerm = `${countryCode.dialCode}${digitsOnly}`;
-      }
-
-      const results = await userService.searchUsers(searchTerm);
+      // Just search with the raw query - don't prepend country code
+      // The searchUsers function will handle matching with or without country codes
+      const results = await userService.searchUsers(searchQuery);
 
       // Filter out players already in team
       const availablePlayers = results.filter(
@@ -126,8 +121,8 @@ function ManageTeam() {
       const hasExactMatch = availablePlayers.some((user) => {
         if (isPhoneNumber) {
           const userPhone = (user.mobileNumber || '').replace(/\D/g, '');
-          const fullSearchPhone = `${countryCode.dialCode.replace(/\D/g, '')}${digitsOnly}`;
-          return userPhone === fullSearchPhone || userPhone.endsWith(digitsOnly);
+          // Match if user's phone ends with our search digits
+          return userPhone.endsWith(digitsOnly);
         } else {
           const userName = (user.name || '').toLowerCase().trim();
           const searchName = searchQuery.toLowerCase().trim();

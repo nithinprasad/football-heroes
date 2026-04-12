@@ -446,13 +446,10 @@ class UserService {
           // Phone number search - extract digits from user's phone
           const userPhoneDigits = (user.mobileNumber || '').replace(/\D/g, '');
 
-          // Match if the last 10 digits match (handles country codes)
-          // e.g., searching "+919876543210" will match stored "+919876543210"
-          // or searching "9876543210" will match stored "+919876543210"
-          const userLast10 = userPhoneDigits.slice(-10);
-          const searchLast10 = searchDigits.slice(-10);
-
-          if (userPhoneDigits === searchDigits || userLast10 === searchLast10) {
+          // Match if user's phone ends with the search digits
+          // e.g., searching "9876543210" will match "+919876543210" (stored as "919876543210")
+          // This handles country codes automatically
+          if (userPhoneDigits.endsWith(searchDigits)) {
             users.push(user);
           }
         } else {

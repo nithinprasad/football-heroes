@@ -208,7 +208,11 @@ function ManageTeam() {
       return;
     }
 
-    if (!confirm(`Remove ${playerName} from the team?`)) {
+    const confirmed = await toast.confirm(
+      `Remove ${playerName} from the team?`,
+      'Remove Player'
+    );
+    if (!confirmed) {
       return;
     }
 

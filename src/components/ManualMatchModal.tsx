@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MatchStage, Team } from '../types';
+import { useToast } from '../contexts/ToastContext';
 
 interface ManualMatchModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ function ManualMatchModal({
   teams,
   defaultVenue,
 }: ManualMatchModalProps) {
+  const toast = useToast();
   const [homeTeamId, setHomeTeamId] = useState('');
   const [awayTeamId, setAwayTeamId] = useState('');
   const [stage, setStage] = useState<MatchStage>('GROUP');
@@ -40,12 +42,12 @@ function ManualMatchModal({
     e.preventDefault();
 
     if (!matchDate || !matchTime) {
-      alert('Please select both date and time');
+      toast.warning('Please select both date and time', 'Missing Information');
       return;
     }
 
     if (homeTeamId === awayTeamId) {
-      alert('Home and away teams must be different');
+      toast.warning('Home and away teams must be different', 'Invalid Selection');
       return;
     }
 

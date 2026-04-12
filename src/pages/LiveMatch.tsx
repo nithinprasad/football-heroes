@@ -223,7 +223,11 @@ function LiveMatch() {
   };
 
   const endMatch = async () => {
-    if (!confirm('End the match and update player statistics?')) {
+    const confirmed = await toast.confirm(
+      'End the match and update player statistics?',
+      'End Match'
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -241,7 +245,11 @@ function LiveMatch() {
   };
 
   const deleteMatch = async () => {
-    if (!confirm('Are you sure you want to delete this match? This action cannot be undone.')) {
+    const confirmed = await toast.confirm(
+      'Are you sure you want to delete this match? This action cannot be undone.',
+      'Delete Match'
+    );
+    if (!confirmed) {
       return;
     }
 

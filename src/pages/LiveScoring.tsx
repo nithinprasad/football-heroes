@@ -154,8 +154,11 @@ function LiveScoring() {
   const endMatch = async () => {
     if (!match || !canManage) return;
 
-    const confirm = window.confirm('Are you sure you want to end this match? This will update all player statistics.');
-    if (!confirm) return;
+    const confirmed = await toast.confirm(
+      'Are you sure you want to end this match? This will update all player statistics.',
+      'End Match'
+    );
+    if (!confirmed) return;
 
     try {
       // Use updateMatchScore with completeMatch=true to update player career stats

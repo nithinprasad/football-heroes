@@ -229,7 +229,11 @@ function TournamentDetail() {
   };
 
   const handleDeleteMatch = async (matchId: string) => {
-    if (!confirm('Are you sure you want to delete this match? This action cannot be undone.')) {
+    const confirmed = await toast.confirm(
+      'Are you sure you want to delete this match? This action cannot be undone.',
+      'Delete Match'
+    );
+    if (!confirmed) {
       return;
     }
     try {

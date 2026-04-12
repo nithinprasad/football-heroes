@@ -81,7 +81,11 @@ function AdminTournaments() {
   };
 
   const handleGenerateFixtures = async (tournamentId: string) => {
-    if (!confirm('Generate fixtures for this tournament? This cannot be undone.')) {
+    const confirmed = await toast.confirm(
+      'Generate fixtures for this tournament? This cannot be undone.',
+      'Generate Fixtures'
+    );
+    if (!confirmed) {
       return;
     }
 

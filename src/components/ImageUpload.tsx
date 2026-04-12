@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useToast } from '../contexts/ToastContext';
 
 interface ImageUploadProps {
   currentImageUrl?: string;
@@ -8,6 +9,7 @@ interface ImageUploadProps {
 }
 
 function ImageUpload({ currentImageUrl, onUpload, label, placeholder }: ImageUploadProps) {
+  const toast = useToast();
   const [preview, setPreview] = useState<string | null>(currentImageUrl || null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -18,13 +20,13 @@ function ImageUpload({ currentImageUrl, onUpload, label, placeholder }: ImageUpl
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      toast.warning('Please select an image file', 'Invalid File Type');
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('Image size must be less than 5MB');
+      toast.warning('Image size must be less than 5MB', 'File Too Large');
       return;
     }
 
@@ -41,7 +43,7 @@ function ImageUpload({ currentImageUrl, onUpload, label, placeholder }: ImageUpl
       await onUpload(file);
     } catch (error: any) {
       console.error('Upload error:', error);
-      alert(error.message || 'Failed to upload image');
+      toast.error(error.message || 'Failed to upload image', 'Upload Error');
       setPreview(currentImageUrl || null);
     } finally {
       setUploading(false);

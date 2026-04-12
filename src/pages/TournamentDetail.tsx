@@ -795,6 +795,7 @@ function TournamentDetail() {
                   </div>
                 ))}
               </div>
+              </div>
             )}
           </>
         )}

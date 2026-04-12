@@ -105,6 +105,17 @@ function Login() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
+        {/* Back Button */}
+        <button
+          onClick={() => navigate('/')}
+          className="mb-6 flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          <span className="text-sm font-medium">Back to Home</span>
+        </button>
+
         <div className="text-center mb-8">
           <div className="text-6xl mb-4">⚽</div>
           <h1 className="text-4xl md:text-5xl font-black text-white mb-2">Football Heroes</h1>

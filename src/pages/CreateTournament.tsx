@@ -315,7 +315,10 @@ function CreateTournament() {
                     min="1"
                     max="8"
                     value={formData.numberOfGroups}
-                    onChange={(e) => setFormData({ ...formData, numberOfGroups: parseInt(e.target.value) })}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      setFormData({ ...formData, numberOfGroups: isNaN(val) ? 1 : val });
+                    }}
                     className="w-full px-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   />
                   <p className="text-xs text-slate-500 mt-2">Leave as 1 for a single league table</p>

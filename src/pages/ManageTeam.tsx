@@ -7,8 +7,8 @@ import userService from '../services/user.service';
 import { Team, User } from '../types';
 import Header from '../components/Header';
 import ImageUpload from '../components/ImageUpload';
+import AddPlayerModal from '../components/AddPlayerModal';
 import { handleError } from '../utils/errorHandler';
-import { countryCodes, detectUserCountry, CountryCode } from '../utils/countryCodes';
 
 function ManageTeam() {
   const { id } = useParams<{ id: string }>();
@@ -26,18 +26,8 @@ function ManageTeam() {
   const [teamName, setTeamName] = useState('');
   const [savingTeam, setSavingTeam] = useState(false);
 
-  // Add player state
-  const [showAddPlayer, setShowAddPlayer] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<User[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [adding, setAdding] = useState(false);
-
-  // Create new player state
-  const [creatingNew, setCreatingNew] = useState(false);
-  const [newPlayerName, setNewPlayerName] = useState('');
-  const [countryCode, setCountryCode] = useState<CountryCode>(detectUserCountry());
-  const [newPlayerPhone, setNewPlayerPhone] = useState('');
+  // Add player modal
+  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -84,148 +74,29 @@ function ManageTeam() {
     }
   };
 
-  // Search players
-  useEffect(() => {
-    const delaySearch = setTimeout(() => {
-      if (searchQuery.trim().length >= 2) {
-        handleSearchPlayers();
-      } else {
-        setSearchResults([]);
-        setCreatingNew(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(delaySearch);
-  }, [searchQuery]);
-
-  const handleSearchPlayers = async () => {
-    try {
-      setSearching(true);
-
-      // Determine if search query is a phone number
-      const digitsOnly = searchQuery.replace(/\D/g, '');
-      const isPhoneNumber = digitsOnly.length >= 8;
-
-      // Just search with the raw query - don't prepend country code
-      // The searchUsers function will handle matching with or without country codes
-      const results = await userService.searchUsers(searchQuery);
-
-      // Filter out players already in team
-      const availablePlayers = results.filter(
-        (user) => !team?.playerIds.includes(user.id)
-      );
-
-      setSearchResults(availablePlayers);
-
-      // Check if there's an exact match in results
-      const hasExactMatch = availablePlayers.some((user) => {
-        if (isPhoneNumber) {
-          const userPhone = (user.mobileNumber || '').replace(/\D/g, '');
-          // Match if user's phone ends with our search digits
-          return userPhone.endsWith(digitsOnly);
-        } else {
-          const userName = (user.name || '').toLowerCase().trim();
-          const searchName = searchQuery.toLowerCase().trim();
-          return userName === searchName;
-        }
-      });
-
-      // Show create option if no results OR no exact match
-      if (availablePlayers.length === 0 || !hasExactMatch) {
-        setCreatingNew(true);
-
-        // Auto-populate based on search query type
-        if (isPhoneNumber) {
-          setNewPlayerPhone(digitsOnly);
-          setNewPlayerName('');
-        } else {
-          setNewPlayerName(searchQuery.trim());
-          setNewPlayerPhone('');
-        }
-      } else {
-        setCreatingNew(false);
-      }
-    } catch (error) {
-      console.error('Error searching players:', error);
-    } finally {
-      setSearching(false);
-    }
+  // Add player handlers for modal
+  const handleAddPlayer = async (playerId: string) => {
+    console.log('🔵 Adding existing player:', playerId);
+    await teamService.addPlayerToTeam(id!, playerId);
+    console.log('✅ Player added to team');
+    toast.success('Player added to team successfully!', 'Success!');
+    await loadTeamData();
   };
 
-  const handleAddExistingPlayer = async (playerId: string) => {
-    try {
-      setAdding(true);
-      console.log('🔵 Adding existing player:', playerId);
+  const handleCreateAndAddPlayer = async (name: string, phone: string, dialCode: string) => {
+    const fullPhoneNumber = `${dialCode}${phone}`;
+    console.log('🔵 Creating player:', name, fullPhoneNumber);
 
-      await teamService.addPlayerToTeam(id!, playerId);
-      console.log('✅ Player added to team');
+    // Create unverified user
+    const userId = await userService.createUnverifiedUser(fullPhoneNumber, name);
+    console.log('✅ User created:', userId);
 
-      toast.success('Player added to team successfully!', 'Success!');
+    // Add to team
+    await teamService.addPlayerToTeam(id!, userId);
+    console.log('✅ Player added to team');
 
-      setShowAddPlayer(false);
-      setSearchQuery('');
-      setSearchResults([]);
-
-      // Reload team data (non-critical)
-      try {
-        await loadTeamData();
-      } catch (reloadError) {
-        console.warn('Could not reload team data, but player was added successfully:', reloadError);
-      }
-    } catch (error) {
-      console.error('❌ Error adding player:', error);
-      toast.error(handleError(error, 'Add Player'), 'Error');
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  const handleCreateAndAddPlayer = async () => {
-    if (!newPlayerName.trim() || !newPlayerPhone.trim()) {
-      toast.error('Please enter player name and phone number', 'Error');
-      return;
-    }
-
-    try {
-      setAdding(true);
-      const fullPhoneNumber = `${countryCode.dialCode}${newPlayerPhone}`;
-
-      console.log('🔵 Creating player:', newPlayerName, fullPhoneNumber);
-
-      // Create unverified user
-      const userId = await userService.createUnverifiedUser(fullPhoneNumber, newPlayerName);
-      console.log('✅ User created:', userId);
-
-      // Add to team
-      await teamService.addPlayerToTeam(id!, userId);
-      console.log('✅ Player added to team');
-
-      toast.success(
-        `${newPlayerName} added to team successfully!`,
-        'Success!'
-      );
-
-      // Reset all form states
-      setShowAddPlayer(false);
-      setSearchQuery('');
-      setNewPlayerName('');
-      setNewPlayerPhone('');
-      setSearchResults([]);
-      setCreatingNew(false);
-      setCreatingNew(false);
-
-      // Reload team data (non-critical - don't fail if this errors)
-      try {
-        await loadTeamData();
-      } catch (reloadError) {
-        console.warn('Could not reload team data, but player was added successfully:', reloadError);
-      }
-    } catch (error) {
-      console.error('❌ Error adding player:', error);
-      toast.error(handleError(error, 'Create Player'), 'Error');
-    } finally {
-      setAdding(false);
-    }
+    toast.success(`${name} added to team successfully!`, 'Success!');
+    await loadTeamData();
   };
 
   const handleRemovePlayer = async (playerId: string, playerName: string) => {
@@ -395,25 +266,25 @@ function ManageTeam() {
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-black text-white">Players ({players.length})</h2>
             <button
-              onClick={() => {
-                setShowAddPlayer(!showAddPlayer);
-                if (showAddPlayer) {
-                  // Reset all states when closing
-                  setSearchQuery('');
-                  setSearchResults([]);
-                  setCreatingNew(false);
-                  setNewPlayerName('');
-                  setNewPlayerPhone('');
-                }
-              }}
+              onClick={() => setShowAddPlayerModal(true)}
               className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all"
             >
-              {showAddPlayer ? '✕ Cancel' : '+ Add Player'}
+              + Add Player
             </button>
           </div>
 
-          {/* Add Player Section */}
-          {showAddPlayer && (
+          {/* Add Player Modal */}
+          <AddPlayerModal
+            isOpen={showAddPlayerModal}
+            onClose={() => setShowAddPlayerModal(false)}
+            onAddPlayer={handleAddPlayer}
+            onCreateAndAddPlayer={handleCreateAndAddPlayer}
+            teamId={id!}
+            existingPlayerIds={team?.playerIds || []}
+          />
+
+          {/* Old Add Player Section - Remove everything below until Players List */}
+          {false && (
             <div className="mb-6 p-4 md:p-6 bg-slate-900/50 rounded-2xl border border-white/10">
               <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span className="text-2xl">🔍</span>

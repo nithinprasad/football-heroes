@@ -7,6 +7,7 @@ import {
   query,
   where,
   updateDoc,
+  deleteDoc,
   orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
@@ -509,9 +510,9 @@ class MatchService {
   }
 
   /**
-   * Delete match (creator only)
+   * Cancel match (sets status to CANCELLED)
    */
-  async deleteMatch(matchId: string): Promise<void> {
+  async cancelMatch(matchId: string): Promise<void> {
     try {
       const matchRef = doc(db, 'matches', matchId);
       await updateDoc(matchRef, {
@@ -519,6 +520,20 @@ class MatchService {
         updatedAt: new Date(),
       });
       console.log('✅ Match cancelled successfully');
+    } catch (error) {
+      console.error('❌ Error cancelling match:', error);
+      throw new Error('Failed to cancel match');
+    }
+  }
+
+  /**
+   * Delete match permanently (organizer only)
+   */
+  async deleteMatch(matchId: string): Promise<void> {
+    try {
+      const matchRef = doc(db, 'matches', matchId);
+      await deleteDoc(matchRef);
+      console.log('✅ Match deleted successfully');
     } catch (error) {
       console.error('❌ Error deleting match:', error);
       throw new Error('Failed to delete match');

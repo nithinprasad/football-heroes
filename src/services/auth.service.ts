@@ -21,9 +21,40 @@ declare global {
 
 class AuthService {
   /**
+   * Load reCAPTCHA script dynamically
+   */
+  private loadRecaptchaScript(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Check if script already exists
+      if (document.querySelector('script[src*="recaptcha"]')) {
+        resolve();
+        return;
+      }
+
+      const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+      if (!siteKey) {
+        console.warn('VITE_RECAPTCHA_SITE_KEY not found, using Firebase default');
+        resolve();
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://www.google.com/recaptcha/api.js?render=${siteKey}`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load reCAPTCHA script'));
+      document.head.appendChild(script);
+    });
+  }
+
+  /**
    * Initialize reCAPTCHA verifier for phone authentication
    */
-  initRecaptchaVerifier(containerId: string = 'recaptcha-container'): RecaptchaVerifier {
+  async initRecaptchaVerifier(containerId: string = 'recaptcha-container'): Promise<RecaptchaVerifier> {
+    // Load reCAPTCHA script first
+    await this.loadRecaptchaScript();
+
     // Clear existing verifier if it exists
     if (window.recaptchaVerifier) {
       try {
@@ -77,7 +108,7 @@ class AuthService {
       // Ensure phone number is in E.164 format (+country_code + number)
       const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
 
-      const appVerifier = window.recaptchaVerifier || this.initRecaptchaVerifier();
+      const appVerifier = window.recaptchaVerifier || await this.initRecaptchaVerifier();
       const confirmationResult = await signInWithPhoneNumber(
         auth,
         formattedNumber,

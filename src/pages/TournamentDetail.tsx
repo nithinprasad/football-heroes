@@ -12,12 +12,15 @@ import StandingsCalculator from '../utils/standingsCalculator';
 import JoinTournamentModal from '../components/JoinTournamentModal';
 import ManageTeamsModal from '../components/ManageTeamsModal';
 import ImageUpload from '../components/ImageUpload';
+import FixtureGenerationModal from '../components/FixtureGenerationModal';
+import ManualMatchModal from '../components/ManualMatchModal';
+import TournamentBracket from '../components/TournamentBracket';
 import { handleError } from '../utils/errorHandler';
 
 function TournamentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, loading: authLoading } = useAuth();
   const toast = useToast();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -30,6 +33,8 @@ function TournamentDetail() {
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showManageModal, setShowManageModal] = useState(false);
+  const [showFixtureModal, setShowFixtureModal] = useState(false);
+  const [showManualMatchModal, setShowManualMatchModal] = useState(false);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [editingLogo, setEditingLogo] = useState(false);
 
@@ -38,6 +43,31 @@ function TournamentDetail() {
       loadTournamentData();
     }
   }, [id, currentUser, userProfile]);
+
+  // Auto-refresh data when user returns to the page
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && id) {
+        console.log('🔄 Page visible again, refreshing tournament data...');
+        loadTournamentData();
+      }
+    };
+
+    const handleFocus = () => {
+      if (id) {
+        console.log('🔄 Window focused, refreshing tournament data...');
+        loadTournamentData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [id]);
 
   const loadTournamentData = async () => {
     try {
@@ -84,16 +114,34 @@ function TournamentDetail() {
         });
         setTeams(teamsMap);
 
-        // Calculate standings
+        // Calculate standings (show all teams even with 0 matches played)
         const completedMatches = matchesData.filter((m) => m.status === 'COMPLETED');
-        if (completedMatches.length > 0) {
-          const standingsData = StandingsCalculator.calculateStandings(
-            completedMatches,
-            tournamentData.pointsForWin,
-            tournamentData.pointsForDraw,
-            tournamentData.pointsForLoss
+        console.log('📊 Calculating standings:', {
+          totalMatches: matchesData.length,
+          completedMatches: completedMatches.length,
+          totalTeams: tournamentData.teamIds.length,
+          matchStatuses: matchesData.map(m => ({ id: m.id, status: m.status }))
+        });
+
+        // Always calculate standings with all tournament teams
+        const standingsData = StandingsCalculator.calculateStandings(
+          completedMatches.length > 0 ? completedMatches : matchesData, // Use all matches to detect groups
+          tournamentData.pointsForWin,
+          tournamentData.pointsForDraw,
+          tournamentData.pointsForLoss,
+          tournamentData.teamIds // Pass all team IDs to initialize standings
+        );
+
+        // For group tournaments, also calculate combined standings
+        if (standingsData.groupStandings) {
+          const combinedStandings = StandingsCalculator.calculateCombinedStandings(
+            standingsData.groupStandings
           );
-          setStandings(standingsData);
+          standingsData.overallStandings = combinedStandings;
+        }
+
+        console.log('✅ Standings calculated:', standingsData);
+        setStandings(standingsData);
 
           // Calculate top scorers from match stats
           const scorersMap: any = {};
@@ -123,7 +171,6 @@ function TournamentDetail() {
 
           setTopScorers(playersData);
         }
-      }
     } catch (error) {
       console.error('Error loading tournament:', error);
     } finally {
@@ -150,6 +197,47 @@ function TournamentDetail() {
       return url;
     } catch (error: any) {
       throw new Error(handleError(error, 'Upload Logo'));
+    }
+  };
+
+  const handleGenerateFixtures = async (scheduling: { daysBetweenMatches: number; restDaysBetweenRounds?: number }) => {
+    try {
+      await tournamentService.generateFixtures(tournament!.id, scheduling);
+      toast.success('Fixtures generated successfully!', 'Success!');
+      await loadTournamentData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to generate fixtures', 'Error');
+    }
+  };
+
+  const handleCreateManualMatch = async (matchData: {
+    homeTeamId: string;
+    awayTeamId: string;
+    stage: any;
+    groupName?: string;
+    matchDate: Date;
+    venue: string;
+    extraTimeDuration?: number;
+  }) => {
+    try {
+      await tournamentService.createManualMatch(tournament!.id, matchData);
+      toast.success('Match created successfully!', 'Success!');
+      await loadTournamentData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create match', 'Error');
+    }
+  };
+
+  const handleDeleteMatch = async (matchId: string) => {
+    if (!confirm('Are you sure you want to delete this match? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      await matchService.deleteMatch(matchId);
+      toast.success('Match deleted successfully!', 'Success!');
+      await loadTournamentData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete match', 'Error');
     }
   };
 
@@ -343,7 +431,7 @@ function TournamentDetail() {
           </div>
 
           {/* Organizer Controls */}
-          {isOrganizer && (
+          {!authLoading && isOrganizer && (
             <div className="mt-6 pt-6 border-t border-white/10">
               <div className="flex items-center gap-2 mb-4">
                 <span className="px-3 py-1 bg-purple-500/20 border border-purple-500/30 rounded-full text-purple-400 text-sm font-bold">
@@ -352,20 +440,16 @@ function TournamentDetail() {
               </div>
               <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={async () => {
-                    if (confirm('Generate fixtures for all teams? This will create matches based on the tournament format.')) {
-                      try {
-                        await tournamentService.generateFixtures(tournament.id);
-                        toast.success('Fixtures generated successfully!', 'Success!');
-                        loadTournamentData();
-                      } catch (error: any) {
-                        toast.error(error.message || 'Failed to generate fixtures', 'Error');
-                      }
-                    }
-                  }}
+                  onClick={() => setShowFixtureModal(true)}
                   className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 rounded-lg font-medium transition-all text-sm"
                 >
                   📅 Generate Fixtures
+                </button>
+                <button
+                  onClick={() => setShowManualMatchModal(true)}
+                  className="px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 text-green-400 rounded-lg font-medium transition-all text-sm"
+                >
+                  ➕ Add Match
                 </button>
                 <button
                   onClick={() => setShowManageModal(true)}
@@ -413,6 +497,67 @@ function TournamentDetail() {
           </div>
         )}
 
+        {/* Standings Preview */}
+        {standings && (
+          <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden mb-6 md:mb-8">
+            <div className="px-6 py-4 bg-slate-900/50 border-b border-white/10 flex items-center justify-between">
+              <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                📊 Current Standings
+              </h2>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={async () => {
+                    await loadTournamentData();
+                    toast.success('Standings refreshed!', 'Refreshed');
+                  }}
+                  className="text-sm text-blue-400 hover:text-blue-300 font-medium"
+                  title="Refresh standings"
+                >
+                  🔄 Refresh
+                </button>
+                <button
+                  onClick={() => setActiveTab('standings')}
+                  className="text-sm text-green-400 hover:text-green-300 font-medium"
+                >
+                  View Full →
+                </button>
+              </div>
+            </div>
+
+            {standings.overallStandings ? (
+              <div className="p-4 md:p-6">
+                <div className="space-y-2">
+                  {standings.overallStandings.slice(0, 5).map((standing: any, idx: number) => (
+                    <div
+                      key={standing.teamId}
+                      className={`flex items-center justify-between p-4 rounded-lg ${
+                        idx === 0 ? 'bg-green-500/10 border border-green-500/30' : 'bg-slate-900/30'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <span className="text-lg font-bold text-slate-400 w-8">{standing.position}</span>
+                        <Link
+                          to={`/teams/${standing.teamId}`}
+                          className="text-lg font-bold text-white hover:text-green-400 transition-colors"
+                        >
+                          {teams[standing.teamId]?.name || standing.teamId}
+                        </Link>
+                      </div>
+                      <div className="flex items-center gap-6 text-sm">
+                        <span className="text-slate-400">{standing.matchesPlayed} played</span>
+                        <span className="text-green-400">{standing.wins}W</span>
+                        <span className="text-yellow-400">{standing.draws}D</span>
+                        <span className="text-red-400">{standing.losses}L</span>
+                        <span className="font-black text-green-400 text-lg min-w-[3rem] text-right">{standing.points} pts</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="flex gap-2 md:gap-3 mb-6 md:mb-8 overflow-x-auto pb-2">
           {['fixtures', 'standings', 'stats', 'teams'].map((tab) => (
@@ -443,89 +588,185 @@ function TournamentDetail() {
                 <p className="text-slate-400 text-sm md:text-base">No matches scheduled yet</p>
               </div>
             ) : (
-              Object.entries(groupedMatches).map(([group, groupMatches]) => (
-                <div key={group}>
-                  <h3 className="text-xl md:text-2xl font-bold text-white mb-4">{group}</h3>
-                  <div className="space-y-3 md:space-y-4">
-                    {groupMatches.map((match) => (
-                      <div
-                        key={match.id}
-                        className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-white/10 p-4 md:p-6 hover:bg-slate-800/70 transition-all"
-                      >
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                          <span className="text-xs md:text-sm text-slate-400">
-                            {formatDateTime(match.matchDate)} • 📍 {match.venue}
-                          </span>
-                          {getStatusBadge(match.status)}
-                        </div>
-
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex-1 text-center md:text-left">
-                            <div className="text-base md:text-lg font-bold text-white">
-                              {teams[match.homeTeamId]?.name || 'TBD'}
-                            </div>
+              <>
+                {Object.entries(groupedMatches).map(([group, groupMatches]) => (
+                  <div key={group}>
+                    <h3 className="text-xl md:text-2xl font-bold text-white mb-4">{group}</h3>
+                    <div className="space-y-3 md:space-y-4">
+                      {groupMatches.map((match) => (
+                        <div
+                          key={match.id}
+                          className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-white/10 p-4 md:p-6 hover:bg-slate-800/70 transition-all"
+                        >
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                            <span className="text-xs md:text-sm text-slate-400">
+                              {formatDateTime(match.matchDate)} • 📍 {match.venue}
+                            </span>
+                            {getStatusBadge(match.status)}
                           </div>
 
-                          <div className="px-4 md:px-8">
-                            {match.status === 'COMPLETED' || match.status === 'ONGOING' ? (
-                              <div className="text-3xl md:text-4xl font-black text-white">
-                                {match.score.home} - {match.score.away}
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex-1 text-center md:text-left">
+                              <div className="text-base md:text-lg font-bold text-white">
+                                {teams[match.homeTeamId]?.name || 'TBD'}
                               </div>
-                            ) : (
-                              <div className="text-2xl text-slate-500 font-bold">vs</div>
-                            )}
+                            </div>
+
+                            <div className="px-4 md:px-8">
+                              {match.status === 'COMPLETED' || match.status === 'ONGOING' ? (
+                                <div className="text-3xl md:text-4xl font-black text-white">
+                                  {match.score.home} - {match.score.away}
+                                </div>
+                              ) : (
+                                <div className="text-2xl text-slate-500 font-bold">vs</div>
+                              )}
+                            </div>
+
+                            <div className="flex-1 text-center md:text-right">
+                              <div className="text-base md:text-lg font-bold text-white">
+                                {teams[match.awayTeamId]?.name || 'TBD'}
+                              </div>
+                            </div>
                           </div>
 
-                          <div className="flex-1 text-center md:text-right">
-                            <div className="text-base md:text-lg font-bold text-white">
-                              {teams[match.awayTeamId]?.name || 'TBD'}
+                          {/* Action Buttons */}
+                          <div className={`pt-4 border-t border-white/10 flex gap-3 ${canScore && match.status !== 'COMPLETED' ? 'justify-between' : 'justify-center'}`}>
+                            <div className="flex gap-3">
+                              {canScore && match.status !== 'COMPLETED' && (
+                                <button
+                                  onClick={() => navigate(`/matches/${match.id}/score`)}
+                                  className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/20 text-sm"
+                                >
+                                  {match.status === 'ONGOING' ? '🔴 Continue Scoring' : '▶️ Start Match'}
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex gap-3">
+                              {isOrganizer && (
+                                <button
+                                  onClick={() => handleDeleteMatch(match.id)}
+                                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 rounded-xl font-medium transition-all text-sm"
+                                  title="Delete match"
+                                >
+                                  🗑️ Delete
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  const url = `${window.location.origin}/tournaments/${tournament.id}`;
+                                  navigator.clipboard.writeText(url);
+                                  toast.success('Match link copied! Share it for live score updates.', 'Copied!');
+                                }}
+                                className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 rounded-xl font-medium transition-all text-sm"
+                              >
+                                📋 Share
+                              </button>
                             </div>
                           </div>
                         </div>
-
-                        {/* Action Buttons */}
-                        <div className={`pt-4 border-t border-white/10 ${canScore && match.status !== 'COMPLETED' ? 'flex gap-3 justify-center' : 'text-center'}`}>
-                          {canScore && match.status !== 'COMPLETED' && (
-                            <button
-                              onClick={() => navigate(`/matches/${match.id}/score`)}
-                              className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/20 text-sm"
-                            >
-                              {match.status === 'ONGOING' ? '🔴 Continue Scoring' : '▶️ Start Match'}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => {
-                              const url = `${window.location.origin}/tournaments/${tournament.id}`;
-                              navigator.clipboard.writeText(url);
-                              toast.success('Match link copied! Share it for live score updates.', 'Copied!');
-                            }}
-                            className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 rounded-xl font-medium transition-all text-sm"
-                          >
-                            📋 Share
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+
+                {/* Tournament Bracket (for knockout stages) */}
+                {matches.some((m) => ['QF', 'SF', 'FINAL', 'R16', 'R32'].includes(m.stage)) && (
+                  <div className="mt-8">
+                    <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                      🏆 Knockout Bracket
+                    </h3>
+                    <TournamentBracket matches={matches} teams={teams} />
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
 
         {activeTab === 'standings' && (
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden">
-            {!standings ? (
-              <div className="p-8 md:p-12 text-center text-slate-400">
-                <div className="text-6xl mb-4 opacity-30">📊</div>
-                <p className="text-sm md:text-base">Standings will appear after matches are completed</p>
+          <>
+            {/* Combined/Overall Standings (shown first) */}
+            {standings?.overallStandings && (
+              <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden mb-6 md:mb-8">
+                <div className="px-6 py-4 bg-slate-900/50 border-b border-white/10">
+                  <h2 className="text-xl md:text-2xl font-bold text-white">
+                    {standings.groupStandings ? 'Overall Standings (All Teams)' : 'Standings'}
+                  </h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs md:text-sm">
+                    <thead className="bg-slate-900/50">
+                      <tr className="text-slate-400">
+                        <th className="px-3 md:px-4 py-2 md:py-3 text-left font-bold">Pos</th>
+                        <th className="px-3 md:px-4 py-2 md:py-3 text-left font-bold">Team</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">P</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">W</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">D</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">L</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">GF</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">GA</th>
+                        <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">GD</th>
+                        <th className="px-3 md:px-4 py-2 md:py-3 text-center font-bold text-green-400">Pts</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {standings.overallStandings.map((standing: any, idx: number) => (
+                        <tr
+                          key={standing.teamId}
+                          className={`border-t border-white/5 hover:bg-slate-900/30 transition-colors ${
+                            idx === 0 && standing.points > 0 ? 'bg-green-500/5' : ''
+                          }`}
+                        >
+                          <td className="px-3 md:px-4 py-3 font-bold text-white">{standing.position}</td>
+                          <td className="px-3 md:px-4 py-3 font-medium text-white">
+                            <Link to={`/teams/${standing.teamId}`} className="hover:text-green-400 transition-colors">
+                              {teams[standing.teamId]?.name || standing.teamId}
+                            </Link>
+                          </td>
+                          <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.matchesPlayed}</td>
+                          <td className="px-2 md:px-3 py-3 text-center text-green-400">{standing.wins}</td>
+                          <td className="px-2 md:px-3 py-3 text-center text-yellow-400">{standing.draws}</td>
+                          <td className="px-2 md:px-3 py-3 text-center text-red-400">{standing.losses}</td>
+                          <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.goalsFor}</td>
+                          <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.goalsAgainst}</td>
+                          <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.goalDifference > 0 ? '+' : ''}{standing.goalDifference}</td>
+                          <td className="px-3 md:px-4 py-3 text-center font-black text-green-400 text-base md:text-lg">{standing.points}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            ) : standings.groupStandings ? (
+            )}
+
+            {/* Group Standings (if groups exist) */}
+            {standings?.groupStandings && (
+              <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden">
+                <div className="px-6 py-4 bg-slate-900/50 border-b border-white/10">
+                  <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                    🏆 Group Standings
+                  </h2>
+                  <p className="text-sm text-slate-400 mt-1">
+                    Individual standings for each group
+                  </p>
+                </div>
               <div className="p-4 md:p-6 space-y-6 md:space-y-8">
-                {Object.entries(standings.groupStandings).map(([groupName, groupData]: [string, any]) => (
-                  <div key={groupName}>
-                    <h3 className="text-xl md:text-2xl font-bold text-white mb-4">{groupName}</h3>
-                    <div className="overflow-x-auto">
+                {Object.entries(standings.groupStandings).map(([groupName, groupData]: [string, any], groupIndex) => {
+                  const totalMatches = groupData.reduce((sum: number, team: any) => sum + team.matchesPlayed, 0) / 2;
+                  const groupColors = ['bg-blue-500/10 border-blue-500/30', 'bg-green-500/10 border-green-500/30', 'bg-purple-500/10 border-purple-500/30', 'bg-orange-500/10 border-orange-500/30'];
+                  const groupColor = groupColors[groupIndex % groupColors.length];
+
+                  return (
+                    <div key={groupName} className={`rounded-2xl border ${groupColor} p-4 md:p-6`}>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                          {groupName}
+                        </h3>
+                        <div className="text-sm text-slate-400">
+                          {groupData.length} teams • {totalMatches} matches played
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto">
                       <table className="w-full text-xs md:text-sm">
                         <thead className="bg-slate-900/50">
                           <tr className="text-slate-400">
@@ -568,55 +809,13 @@ function TournamentDetail() {
                         </tbody>
                       </table>
                     </div>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
-            ) : standings.overallStandings ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs md:text-sm">
-                  <thead className="bg-slate-900/50">
-                    <tr className="text-slate-400">
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left font-bold">Pos</th>
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-left font-bold">Team</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">P</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">W</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">D</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">L</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">GF</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">GA</th>
-                      <th className="px-2 md:px-3 py-2 md:py-3 text-center font-bold">GD</th>
-                      <th className="px-3 md:px-4 py-2 md:py-3 text-center font-bold text-green-400">Pts</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {standings.overallStandings.map((standing: any, idx: number) => (
-                      <tr
-                        key={standing.teamId}
-                        className={`border-t border-white/5 hover:bg-slate-900/30 transition-colors ${
-                          idx === 0 ? 'bg-green-500/5' : ''
-                        }`}
-                      >
-                        <td className="px-3 md:px-4 py-3 font-bold text-white">{standing.position}</td>
-                        <td className="px-3 md:px-4 py-3 font-medium text-white">
-                          <Link to={`/teams/${standing.teamId}`} className="hover:text-green-400 transition-colors">
-                            {teams[standing.teamId]?.name || standing.teamId}
-                          </Link>
-                        </td>
-                        <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.matchesPlayed}</td>
-                        <td className="px-2 md:px-3 py-3 text-center text-green-400">{standing.wins}</td>
-                        <td className="px-2 md:px-3 py-3 text-center text-yellow-400">{standing.draws}</td>
-                        <td className="px-2 md:px-3 py-3 text-center text-red-400">{standing.losses}</td>
-                        <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.goalsFor}</td>
-                        <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.goalsAgainst}</td>
-                        <td className="px-2 md:px-3 py-3 text-center text-slate-300">{standing.goalDifference > 0 ? '+' : ''}{standing.goalDifference}</td>
-                        <td className="px-3 md:px-4 py-3 text-center font-black text-green-400 text-base md:text-lg">{standing.points}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               </div>
-            ) : null}
-          </div>
+            )}
+          </>
         )}
 
         {activeTab === 'stats' && (
@@ -765,6 +964,25 @@ function TournamentDetail() {
           onUpdate={() => {
             loadTournamentData();
           }}
+        />
+      )}
+
+      {showFixtureModal && tournament && (
+        <FixtureGenerationModal
+          isOpen={showFixtureModal}
+          onClose={() => setShowFixtureModal(false)}
+          onGenerate={handleGenerateFixtures}
+          tournamentFormat={tournament.format}
+        />
+      )}
+
+      {showManualMatchModal && tournament && (
+        <ManualMatchModal
+          isOpen={showManualMatchModal}
+          onClose={() => setShowManualMatchModal(false)}
+          onCreateMatch={handleCreateManualMatch}
+          teams={Object.values(teams)}
+          defaultVenue={tournament.location}
         />
       )}
     </div>

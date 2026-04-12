@@ -57,6 +57,10 @@
         {
           "fieldPath": "matchDate",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
       ]
     },

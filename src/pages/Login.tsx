@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ProfileSetup from '../components/ProfileSetup';
 import { countryCodes, detectUserCountry, CountryCode } from '../utils/countryCodes';
 import { handleError } from '../utils/errorHandler';
+import authService from '../services/auth.service';
 
 function Login() {
   const [countryCode, setCountryCode] = useState<CountryCode>(detectUserCountry());
@@ -23,6 +24,15 @@ function Login() {
       navigate('/dashboard');
     }
   }, [currentUser, userProfile, step, navigate]);
+
+  useEffect(() => {
+    // Initialize reCAPTCHA when component mounts (for phone step)
+    if (step === 'phone') {
+      authService.initRecaptchaVerifier('recaptcha-container').catch((err) => {
+        console.error('Failed to initialize reCAPTCHA:', err);
+      });
+    }
+  }, [step]);
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();

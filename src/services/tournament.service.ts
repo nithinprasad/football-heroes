@@ -251,7 +251,10 @@ class TournamentService {
   /**
    * Generate fixtures for tournament
    */
-  async generateFixtures(tournamentId: string): Promise<void> {
+  async generateFixtures(
+    tournamentId: string,
+    scheduling?: { daysBetweenMatches: number; restDaysBetweenRounds?: number }
+  ): Promise<void> {
     try {
       const tournament = await this.getTournamentById(tournamentId);
       if (!tournament) {
@@ -262,13 +265,34 @@ class TournamentService {
         throw new Error('At least 2 teams required to generate fixtures');
       }
 
+      // Convert Firestore Timestamp to Date properly
+      let startDate: Date;
+      if (tournament.startDate instanceof Date) {
+        startDate = tournament.startDate;
+      } else if (tournament.startDate && typeof tournament.startDate === 'object' && 'toDate' in tournament.startDate) {
+        // Firestore Timestamp
+        startDate = (tournament.startDate as any).toDate();
+      } else if (tournament.startDate) {
+        // String or number
+        startDate = new Date(tournament.startDate);
+      } else {
+        // No start date, use today
+        startDate = new Date();
+      }
+
+      // Validate the date
+      if (isNaN(startDate.getTime())) {
+        throw new Error('Invalid tournament start date');
+      }
+
       const fixtures = FixtureGenerator.generateFixtures({
         tournamentId,
         teams: tournament.teamIds,
         format: tournament.format,
-        startDate: tournament.startDate as any,
+        startDate,
         venue: tournament.location,
         numberOfGroups: tournament.numberOfGroups,
+        scheduling,
       });
 
       console.log(`📅 Generating ${fixtures.length} fixtures for tournament ${tournament.name}`);
@@ -367,6 +391,58 @@ class TournamentService {
     } catch (error) {
       console.error('Error removing organizer:', error);
       throw new Error('Failed to remove organizer');
+    }
+  }
+
+  /**
+   * Create a manual match for tournament
+   */
+  async createManualMatch(
+    tournamentId: string,
+    matchData: {
+      homeTeamId: string;
+      awayTeamId: string;
+      stage: string;
+      groupName?: string;
+      matchDate: Date;
+      venue: string;
+      extraTimeDuration?: number;
+    }
+  ): Promise<string> {
+    try {
+      const matchRef = doc(this.matchesCollection);
+
+      const match: any = {
+        id: matchRef.id,
+        tournamentId,
+        homeTeamId: matchData.homeTeamId,
+        awayTeamId: matchData.awayTeamId,
+        stage: matchData.stage,
+        matchDate: matchData.matchDate,
+        venue: matchData.venue,
+        status: 'SCHEDULED',
+        score: {
+          home: 0,
+          away: 0,
+        },
+        createdAt: serverTimestamp() as any,
+        updatedAt: serverTimestamp() as any,
+      };
+
+      // Only include optional fields if they have values
+      if (matchData.groupName) {
+        match.groupName = matchData.groupName;
+      }
+      if (matchData.extraTimeDuration) {
+        match.extraTimeDuration = matchData.extraTimeDuration;
+      }
+
+      await setDoc(matchRef, match);
+      console.log('✅ Manual match created:', matchRef.id);
+      return matchRef.id;
+    } catch (error) {
+      console.error('Error creating manual match:', error);
+      throw new Error('Failed to create manual match');
     }
   }
 

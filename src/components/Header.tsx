@@ -6,6 +6,7 @@ const Header = () => {
   const { currentUser, userProfile, signOut } = useAuth();
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -29,17 +30,17 @@ const Header = () => {
             </h1>
           </Link>
 
-          {/* Navigation Links */}
-          <div className="flex items-center gap-4 md:gap-6">
+          {/* Desktop Navigation Links */}
+          <div className="hidden md:flex items-center gap-6">
             <Link
               to="/tournaments"
-              className="text-white/90 hover:text-white transition-colors font-medium text-sm md:text-base"
+              className="text-white/90 hover:text-white transition-colors font-medium"
             >
               Tournaments
             </Link>
             <Link
               to="/teams"
-              className="text-white/90 hover:text-white transition-colors font-medium text-sm md:text-base"
+              className="text-white/90 hover:text-white transition-colors font-medium"
             >
               Teams
             </Link>
@@ -160,7 +161,82 @@ const Header = () => {
               </Link>
             )}
           </div>
+
+          {/* Mobile Hamburger Menu Button */}
+          <button
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            className="md:hidden flex items-center justify-center w-10 h-10 text-white hover:bg-white/10 rounded-lg transition-all"
+            aria-label="Toggle menu"
+          >
+            {showMobileMenu ? (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
         </div>
+
+        {/* Mobile Menu */}
+        {showMobileMenu && (
+          <div className="md:hidden mt-4 pb-4 border-t border-white/10 pt-4">
+            <div className="flex flex-col space-y-3">
+              <Link
+                to="/tournaments"
+                onClick={() => setShowMobileMenu(false)}
+                className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+              >
+                🏆 Tournaments
+              </Link>
+              <Link
+                to="/teams"
+                onClick={() => setShowMobileMenu(false)}
+                className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+              >
+                👥 Teams
+              </Link>
+
+              {currentUser && (
+                <>
+                  <div className="border-t border-white/10 my-2" />
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+                  >
+                    📊 Dashboard
+                  </Link>
+                  <Link
+                    to="/my-teams"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+                  >
+                    👥 My Teams
+                  </Link>
+                  <Link
+                    to="/profile"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+                  >
+                    ⚙️ Profile
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleSignOut();
+                      setShowMobileMenu(false);
+                    }}
+                    className="px-4 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg transition-colors font-medium text-left"
+                  >
+                    🚪 Sign Out
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );

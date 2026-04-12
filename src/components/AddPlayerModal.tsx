@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import userService from '../services/user.service';
 import { User } from '../types';
@@ -27,6 +27,7 @@ function AddPlayerModal({
   const [searching, setSearching] = useState(false);
   const [adding, setAdding] = useState(false);
   const [countryCode, setCountryCode] = useState<CountryCode>(detectUserCountry());
+  const [hasShownMinDigitsWarning, setHasShownMinDigitsWarning] = useState(false);
 
   // Create new player state
   const [creatingNew, setCreatingNew] = useState(false);
@@ -36,9 +37,7 @@ function AddPlayerModal({
   // Join link state
   const [joinLinkCopied, setJoinLinkCopied] = useState(false);
 
-  if (!isOpen) return null;
-
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     if (searchQuery.trim().length < 2) return;
 
     try {
@@ -49,49 +48,56 @@ function AddPlayerModal({
 
       if (searchMethod === 'phone') {
         const digitsOnly = searchQuery.replace(/\D/g, '');
-        if (digitsOnly.length < 8) {
-          toast.warning('Please enter at least 8 digits', 'Invalid Phone');
+        if (digitsOnly.length < 5) {
+          // Only show toast once
+          if (!hasShownMinDigitsWarning) {
+            toast.warning('Please enter at least 5 digits', 'Invalid Phone');
+            setHasShownMinDigitsWarning(true);
+          }
           setSearching(false);
+          setSearchResults([]);
+          setCreatingNew(false);
           return;
         }
 
-        // Search with full number including country code
-        const fullPhone = `${countryCode.dialCode}${digitsOnly}`;
-        results = await userService.searchUsers(fullPhone);
+        // Reset warning flag once valid
+        if (digitsOnly.length >= 5) {
+          setHasShownMinDigitsWarning(false);
+        }
 
+        // Search with just the digits (no country code prepended)
+        // The service will match phones that contain these digits
+        results = await userService.searchUsers(digitsOnly);
+
+        // For phone search: only offer to create if NO results found
+        // (phone numbers should be unique)
         if (results.length === 0) {
           setCreatingNew(true);
           setNewPlayerPhone(digitsOnly);
           setNewPlayerName('');
+        } else {
+          setCreatingNew(false);
         }
       } else {
         // Name search
         results = await userService.searchUsers(searchQuery);
 
-        if (results.length === 0) {
-          setCreatingNew(true);
-          setNewPlayerName(searchQuery.trim());
-          setNewPlayerPhone('');
-        }
+        // For name search: always show create option (names can be duplicate)
+        // Pre-fill with search query
+        setCreatingNew(true);
+        setNewPlayerName(searchQuery.trim());
+        setNewPlayerPhone('');
       }
 
-      // Filter out existing players
-      const availablePlayers = results.filter(
-        (user) => !existingPlayerIds.includes(user.id)
-      );
-
-      setSearchResults(availablePlayers);
-
-      if (availablePlayers.length === 0 && results.length > 0) {
-        toast.info('All matching players are already in this team', 'Info');
-      }
+      // Don't filter out existing players - show them with "Already Added" status
+      setSearchResults(results);
     } catch (error) {
       console.error('Error searching:', error);
       toast.error('Failed to search players', 'Error');
     } finally {
       setSearching(false);
     }
-  };
+  }, [searchQuery, searchMethod, countryCode, existingPlayerIds, toast, hasShownMinDigitsWarning]);
 
   useEffect(() => {
     const delaySearch = setTimeout(() => {
@@ -104,7 +110,7 @@ function AddPlayerModal({
     }, 300);
 
     return () => clearTimeout(delaySearch);
-  }, [searchQuery, searchMethod]);
+  }, [searchQuery, searchMethod, handleSearch]);
 
   const handleAddExisting = async (playerId: string) => {
     try {
@@ -151,6 +157,8 @@ function AddPlayerModal({
     });
   };
 
+  if (!isOpen) return null;
+
   return (
     <>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998]" onClick={onClose} />
@@ -181,6 +189,7 @@ function AddPlayerModal({
                   setSearchQuery('');
                   setSearchResults([]);
                   setCreatingNew(false);
+                  setHasShownMinDigitsWarning(false);
                 }}
                 className={`px-4 py-2 font-medium transition-all ${
                   searchMethod === 'name'
@@ -196,6 +205,7 @@ function AddPlayerModal({
                   setSearchQuery('');
                   setSearchResults([]);
                   setCreatingNew(false);
+                  setHasShownMinDigitsWarning(false);
                 }}
                 className={`px-4 py-2 font-medium transition-all ${
                   searchMethod === 'phone'
@@ -210,6 +220,7 @@ function AddPlayerModal({
                   setSearchMethod('link');
                   setSearchResults([]);
                   setCreatingNew(false);
+                  setHasShownMinDigitsWarning(false);
                 }}
                 className={`px-4 py-2 font-medium transition-all ${
                   searchMethod === 'link'
@@ -335,37 +346,71 @@ function AddPlayerModal({
                 <p className="text-sm font-medium text-green-400">
                   ✓ {searchResults.length} player{searchResults.length !== 1 ? 's' : ''} found
                 </p>
-                {searchResults.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-4 bg-slate-800 rounded-xl border border-white/10"
-                  >
-                    <div className="flex-1">
-                      <p className="text-white font-bold">{user.name || 'No name'}</p>
-                      <p className="text-slate-400 text-sm">{user.mobileNumber}</p>
-                      {user.position && (
-                        <span className="inline-block mt-1 px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded">
-                          {user.position}
-                        </span>
+                {searchResults.map((user) => {
+                  const isAlreadyInTeam = existingPlayerIds.includes(user.id);
+                  return (
+                    <div
+                      key={user.id}
+                      className={`flex items-center justify-between p-4 bg-slate-800 rounded-xl border ${
+                        isAlreadyInTeam ? 'border-blue-500/30' : 'border-white/10'
+                      }`}
+                    >
+                      <div className="flex-1">
+                        <p className="text-white font-bold flex items-center gap-2">
+                          {user.name || 'No name'}
+                          {isAlreadyInTeam && (
+                            <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded">
+                              ✓ Already Added
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-slate-400 text-sm">{user.mobileNumber}</p>
+                        {user.position && (
+                          <span className="inline-block mt-1 px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded">
+                            {user.position}
+                          </span>
+                        )}
+                      </div>
+                      {isAlreadyInTeam ? (
+                        <div className="px-4 py-2 bg-slate-700 text-slate-400 rounded-lg font-medium cursor-not-allowed">
+                          In Team
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleAddExisting(user.id)}
+                          disabled={adding}
+                          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-all disabled:opacity-50"
+                        >
+                          {adding ? 'Adding...' : 'Add'}
+                        </button>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleAddExisting(user.id)}
-                      disabled={adding}
-                      className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-all disabled:opacity-50"
-                    >
-                      {adding ? 'Adding...' : 'Add'}
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Divider - only show when name search has results */}
+            {searchMethod === 'name' && searchResults.length > 0 && creatingNew && (
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/10"></div>
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-4 bg-slate-900 text-slate-400">
+                    OR
+                  </span>
+                </div>
               </div>
             )}
 
             {/* Create New Player */}
             {creatingNew && (
-              <div className="mt-6 p-6 bg-blue-500/10 border border-blue-500/30 rounded-2xl">
+              <div className={searchResults.length > 0 ? 'mt-0 p-6 bg-blue-500/10 border border-blue-500/30 rounded-2xl' : 'mt-6 p-6 bg-blue-500/10 border border-blue-500/30 rounded-2xl'}>
                 <p className="text-blue-400 font-bold mb-4">
-                  Player not found. Create new profile:
+                  {searchMethod === 'name' && searchResults.length > 0
+                    ? '👤 Not the right person? Create new profile:'
+                    : '👤 Player not found. Create new profile:'}
                 </p>
                 <div className="space-y-4">
                   <div>

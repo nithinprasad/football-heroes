@@ -431,13 +431,16 @@ class UserService {
     try {
       const querySnapshot = await getDocs(this.usersCollection);
       const users: User[] = [];
+      const seenPhones = new Set<string>();
       const searchLower = searchTerm.toLowerCase().trim();
 
       // Extract digits for phone search
       const searchDigits = searchTerm.replace(/\D/g, '');
 
-      // Determine if this is a phone number search (8+ digits)
-      const isPhoneSearch = searchDigits.length >= 8;
+      // Determine if this is a phone number search (5+ digits)
+      const isPhoneSearch = searchDigits.length >= 5;
+
+      console.log('🔍 Search term:', searchTerm, '| Is phone search:', isPhoneSearch, '| Search digits:', searchDigits);
 
       querySnapshot.forEach((doc) => {
         const user = { ...doc.data(), id: doc.id } as User;
@@ -446,11 +449,18 @@ class UserService {
           // Phone number search - extract digits from user's phone
           const userPhoneDigits = (user.mobileNumber || '').replace(/\D/g, '');
 
-          // Match if user's phone ends with the search digits
-          // e.g., searching "9876543210" will match "+919876543210" (stored as "919876543210")
-          // This handles country codes automatically
-          if (userPhoneDigits.endsWith(searchDigits)) {
-            users.push(user);
+          // Skip if no phone number
+          if (!userPhoneDigits) return;
+
+          // Match if user's phone contains the search digits
+          // This allows partial matching: "98765" will match "919876543210"
+          if (userPhoneDigits.includes(searchDigits)) {
+            // Deduplicate by phone number
+            if (!seenPhones.has(userPhoneDigits)) {
+              seenPhones.add(userPhoneDigits);
+              users.push(user);
+              console.log('✓ Match found:', user.name, '| Phone:', user.mobileNumber, '| Digits:', userPhoneDigits);
+            }
           }
         } else {
           // Name search - only match if name starts with search term
@@ -461,6 +471,7 @@ class UserService {
         }
       });
 
+      console.log('📊 Total matches found:', users.length);
       return users;
     } catch (error) {
       console.error('Error searching users:', error);

@@ -9,7 +9,7 @@ import Header from '../components/Header';
 import ProfileCompletePrompt from '../components/ProfileCompletePrompt';
 
 function Dashboard() {
-  const { userProfile, signOut, currentUser } = useAuth();
+  const { userProfile, signOut, currentUser, updateProfile } = useAuth();
   const [myTournaments, setMyTournaments] = useState<Tournament[]>([]);
   const [myTeams, setMyTeams] = useState<Team[]>([]);
   const [recentMatches, setRecentMatches] = useState<Match[]>([]);
@@ -24,6 +24,18 @@ function Dashboard() {
       // Check if profile is incomplete and show prompt
       if (userProfile && (!userProfile.name || !userProfile.position)) {
         setShowProfilePrompt(true);
+      }
+
+      // Auto-sync mobile number from Firebase Auth if missing in Firestore profile
+      if (userProfile && !userProfile.mobileNumber && currentUser.phoneNumber) {
+        console.log('📱 Auto-syncing mobile number from Firebase Auth:', currentUser.phoneNumber);
+        updateProfile({
+          mobileNumber: currentUser.phoneNumber,
+        }).then(() => {
+          console.log('✅ Mobile number auto-synced and UI updated');
+        }).catch((error) => {
+          console.error('❌ Error auto-syncing mobile number:', error);
+        });
       }
     }
   }, [currentUser, userProfile]);

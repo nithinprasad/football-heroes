@@ -199,7 +199,7 @@ const Header = () => {
                 👥 Teams
               </Link>
 
-              {currentUser && (
+              {currentUser ? (
                 <>
                   <div className="border-t border-white/10 my-2" />
                   <Link
@@ -232,6 +232,17 @@ const Header = () => {
                   >
                     🚪 Sign Out
                   </button>
+                </>
+              ) : (
+                <>
+                  <div className="border-t border-white/10 my-2" />
+                  <Link
+                    to="/login"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg font-bold shadow-lg shadow-green-500/50 transition-all text-center"
+                  >
+                    🔐 Sign In
+                  </Link>
                 </>
               )}
             </div>

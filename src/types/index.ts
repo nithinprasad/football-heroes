@@ -28,15 +28,39 @@ export interface User {
 }
 
 // Team Types
+export interface TeamPlayerRoster {
+  playerId: string;
+  jerseyNumber?: number; // Team-specific jersey number
+  teamStats?: UserStats; // Stats specific to this team
+  joinedAt: Date;
+}
+
+export interface TeamJoinRequest {
+  id: string;
+  teamId: string;
+  playerId: string;
+  playerName: string; // Denormalized for display
+  playerPhone?: string;
+  status: JoinRequestStatus;
+  createdAt: Date;
+  reviewedAt?: Date;
+  reviewedBy?: string; // Manager who approved/rejected
+}
+
 export interface Team {
   id: string;
   teamId?: string; // Unique, user-friendly identifier (e.g., "WARRIORS-A7B3") - optional for backward compatibility
   name: string;
+  sport?: string; // Sport type (football, cricket, etc.)
+  location?: string; // Team location
   managerId?: string; // User who created/manages the team - optional for backward compatibility
   captainId: string;
   playerIds: string[];
+  roster?: TeamPlayerRoster[]; // Detailed player roster with team-specific data
+  joinRequests?: TeamJoinRequest[]; // Pending join requests
   logoURL?: string;
   createdAt: Date;
+  updatedAt?: Date;
 }
 
 // Tournament Types

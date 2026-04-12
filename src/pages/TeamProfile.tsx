@@ -30,7 +30,7 @@ function TeamProfile() {
     if (id) {
       loadTeamData();
     }
-  }, [id]);
+  }, [id, currentUser]);
 
   const loadTeamData = async () => {
     try {
@@ -43,9 +43,7 @@ function TeamProfile() {
       setTeam(teamData);
 
       // Check if current user is the manager
-      if (currentUser && teamData.managerId === currentUser.uid) {
-        setIsManager(true);
-      }
+      setIsManager(currentUser ? teamData.managerId === currentUser.uid : false);
 
       // Load players
       const playersData = await Promise.all(
@@ -116,6 +114,11 @@ function TeamProfile() {
       return <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-yellow-500 flex items-center justify-center text-white font-bold text-sm md:text-base">D</div>;
     }
     return <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-red-500 flex items-center justify-center text-white font-bold text-sm md:text-base">L</div>;
+  };
+
+  const getPlayerJerseyNumber = (playerId: string): number | undefined => {
+    const rosterEntry = team?.roster?.find((r) => r.playerId === playerId);
+    return rosterEntry?.jerseyNumber;
   };
 
   const getStatusBadge = (status: string) => {
@@ -254,41 +257,53 @@ function TeamProfile() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-            {players.map((player) => (
-              <Link
-                key={player.id}
-                to={`/users/${player.id}`}
-                className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-white/10 p-4 md:p-6 hover:bg-slate-800/70 hover:border-green-500/30 transition-all"
-              >
-                {/* Player Photo */}
-                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20 mx-auto mb-3">
-                  {player.photoURL ? (
-                    <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-3xl md:text-4xl">👤</span>
-                  )}
-                </div>
+            {players.map((player) => {
+              const teamJerseyNumber = getPlayerJerseyNumber(player.id);
+              const displayJerseyNumber = teamJerseyNumber || player.jerseyNumber;
 
-                {/* Player Info */}
-                <div className="text-center">
-                  <div className="font-bold text-white mb-1 text-sm md:text-base line-clamp-1">{player.name}</div>
-                  {player.jerseyNumber && (
-                    <div className="text-2xl md:text-3xl font-black text-green-400 mb-1">#{player.jerseyNumber}</div>
-                  )}
-                  {player.position && (
-                    <div className="text-xs text-slate-400 mb-2">
-                      {player.position === 'Goalkeeper' && '🧤'}
-                      {player.position === 'Defender' && '🛡️'}
-                      {player.position === 'Midfielder' && '⚡'}
-                      {player.position === 'Forward' && '⚽'}
-                      {' '}{player.position}
-                    </div>
-                  )}
-                  {player.id === team.captainId && (
-                    <div className="px-2 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-yellow-400 text-xs font-bold">
-                      Captain
-                    </div>
-                  )}
+              return (
+                <Link
+                  key={player.id}
+                  to={`/users/${player.id}`}
+                  className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-white/10 p-4 md:p-6 hover:bg-slate-800/70 hover:border-green-500/30 transition-all"
+                >
+                  {/* Player Photo */}
+                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20 mx-auto mb-3">
+                    {player.photoURL ? (
+                      <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-3xl md:text-4xl">👤</span>
+                    )}
+                  </div>
+
+                  {/* Player Info */}
+                  <div className="text-center">
+                    <div className="font-bold text-white mb-1 text-sm md:text-base line-clamp-1">{player.name}</div>
+
+                    {/* Jersey Number Badge */}
+                    {displayJerseyNumber && (
+                      <div className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full mb-2">
+                        <span className="text-white font-black text-lg">#{displayJerseyNumber}</span>
+                        {!teamJerseyNumber && player.jerseyNumber && (
+                          <span className="text-green-100 text-xs opacity-70">Global</span>
+                        )}
+                      </div>
+                    )}
+
+                    {player.position && (
+                      <div className="text-xs text-slate-400 mb-2">
+                        {player.position === 'Goalkeeper' && '🧤'}
+                        {player.position === 'Defender' && '🛡️'}
+                        {player.position === 'Midfielder' && '⚡'}
+                        {player.position === 'Forward' && '⚽'}
+                        {' '}{player.position}
+                      </div>
+                    )}
+                    {player.id === team.captainId && (
+                      <div className="px-2 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-yellow-400 text-xs font-bold">
+                        Captain
+                      </div>
+                    )}
 
                   {/* Player Stats */}
                   <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-3 gap-1 text-xs">
@@ -307,7 +322,8 @@ function TeamProfile() {
                   </div>
                 </div>
               </Link>
-            ))}
+            );
+          })}
           </div>
         </div>
 

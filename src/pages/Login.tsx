@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import ProfileSetup from '../components/ProfileSetup';
 import { countryCodes, detectUserCountry, CountryCode } from '../utils/countryCodes';
@@ -17,13 +17,15 @@ function Login() {
 
   const { signInWithPhone, signInWithGoogle, verifyOTP, currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectUrl = searchParams.get('redirect') || '/dashboard';
 
   useEffect(() => {
-    // If user is already logged in when visiting login page, redirect to dashboard
+    // If user is already logged in when visiting login page, redirect
     if (currentUser && userProfile && step === 'phone') {
-      navigate('/dashboard');
+      navigate(redirectUrl);
     }
-  }, [currentUser, userProfile, step, navigate]);
+  }, [currentUser, userProfile, step, navigate, redirectUrl]);
 
   useEffect(() => {
     // Initialize reCAPTCHA when component mounts (for phone step)
@@ -58,9 +60,8 @@ function Login() {
 
     try {
       await verifyOTP(otp);
-      // Navigate to dashboard immediately after successful OTP verification
-      // Dashboard will show profile completion prompt if needed
-      navigate('/dashboard');
+      // Navigate after successful OTP verification
+      navigate(redirectUrl);
     } catch (err: any) {
       setError(handleError(err, 'Verify OTP'));
     } finally {
@@ -74,8 +75,8 @@ function Login() {
 
     try {
       await signInWithGoogle();
-      // Navigate to dashboard - if phone number missing, prompt will show
-      navigate('/dashboard');
+      // Navigate after successful Google sign in
+      navigate(redirectUrl);
     } catch (err: any) {
       setError(handleError(err, 'Google Sign In'));
     } finally {
@@ -84,11 +85,11 @@ function Login() {
   };
 
   const handleProfileSetupComplete = () => {
-    navigate('/dashboard');
+    navigate(redirectUrl);
   };
 
   const handleProfileSetupSkip = () => {
-    navigate('/dashboard');
+    navigate(redirectUrl);
   };
 
   if (step === 'setup' && currentUser) {
@@ -105,6 +106,17 @@ function Login() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
+        {/* Back Button */}
+        <button
+          onClick={() => navigate('/')}
+          className="mb-6 flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          <span className="text-sm font-medium">Back to Home</span>
+        </button>
+
         <div className="text-center mb-8">
           <div className="text-6xl mb-4">⚽</div>
           <h1 className="text-4xl md:text-5xl font-black text-white mb-2">Football Heroes</h1>

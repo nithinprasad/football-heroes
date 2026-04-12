@@ -207,7 +207,16 @@ function Profile() {
                 <label className="block text-sm font-medium text-slate-400 mb-1">
                   Mobile Number
                 </label>
-                <p className="text-lg font-medium text-white">{userProfile?.mobileNumber}</p>
+                {userProfile?.mobileNumber ? (
+                  <p className="text-lg font-medium text-white">{userProfile.mobileNumber}</p>
+                ) : (
+                  <div>
+                    <p className="text-lg font-medium text-slate-500">Not set</p>
+                    <p className="text-xs text-yellow-400 mt-1">
+                      ⚠️ Add your mobile number to be searchable when others add players to teams
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>

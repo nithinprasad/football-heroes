@@ -431,23 +431,47 @@ class UserService {
     try {
       const querySnapshot = await getDocs(this.usersCollection);
       const users: User[] = [];
-      const search = searchTerm.toLowerCase().replace(/\s+/g, '');
+      const seenPhones = new Set<string>();
+      const searchLower = searchTerm.toLowerCase().trim();
+
+      // Extract digits for phone search
+      const searchDigits = searchTerm.replace(/\D/g, '');
+
+      // Determine if this is a phone number search (5+ digits)
+      const isPhoneSearch = searchDigits.length >= 5;
+
+      console.log('🔍 Search term:', searchTerm, '| Is phone search:', isPhoneSearch, '| Search digits:', searchDigits);
 
       querySnapshot.forEach((doc) => {
         const user = { ...doc.data(), id: doc.id } as User;
-        const userName = (user.name || '').toLowerCase();
-        const userPhone = (user.mobileNumber || '').replace(/\s+/g, '').replace(/\D/g, '');
-        const searchPhone = searchTerm.replace(/\s+/g, '').replace(/\D/g, '');
 
-        // Match by name or phone number
-        if (
-          userName.includes(searchTerm.toLowerCase()) ||
-          userPhone.includes(searchPhone)
-        ) {
-          users.push(user);
+        if (isPhoneSearch) {
+          // Phone number search - extract digits from user's phone
+          const userPhoneDigits = (user.mobileNumber || '').replace(/\D/g, '');
+
+          // Skip if no phone number
+          if (!userPhoneDigits) return;
+
+          // Match if user's phone contains the search digits
+          // This allows partial matching: "98765" will match "919876543210"
+          if (userPhoneDigits.includes(searchDigits)) {
+            // Deduplicate by phone number
+            if (!seenPhones.has(userPhoneDigits)) {
+              seenPhones.add(userPhoneDigits);
+              users.push(user);
+              console.log('✓ Match found:', user.name, '| Phone:', user.mobileNumber, '| Digits:', userPhoneDigits);
+            }
+          }
+        } else {
+          // Name search - only match if name starts with search term
+          const userName = (user.name || '').toLowerCase().trim();
+          if (userName.startsWith(searchLower)) {
+            users.push(user);
+          }
         }
       });
 
+      console.log('📊 Total matches found:', users.length);
       return users;
     } catch (error) {
       console.error('Error searching users:', error);

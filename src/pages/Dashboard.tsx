@@ -9,7 +9,7 @@ import Header from '../components/Header';
 import ProfileCompletePrompt from '../components/ProfileCompletePrompt';
 
 function Dashboard() {
-  const { userProfile, signOut, currentUser } = useAuth();
+  const { userProfile, signOut, currentUser, updateProfile } = useAuth();
   const [myTournaments, setMyTournaments] = useState<Tournament[]>([]);
   const [myTeams, setMyTeams] = useState<Team[]>([]);
   const [recentMatches, setRecentMatches] = useState<Match[]>([]);
@@ -24,6 +24,18 @@ function Dashboard() {
       // Check if profile is incomplete and show prompt
       if (userProfile && (!userProfile.name || !userProfile.position)) {
         setShowProfilePrompt(true);
+      }
+
+      // Auto-sync mobile number from Firebase Auth if missing in Firestore profile
+      if (userProfile && !userProfile.mobileNumber && currentUser.phoneNumber) {
+        console.log('📱 Auto-syncing mobile number from Firebase Auth:', currentUser.phoneNumber);
+        updateProfile({
+          mobileNumber: currentUser.phoneNumber,
+        }).then(() => {
+          console.log('✅ Mobile number auto-synced and UI updated');
+        }).catch((error) => {
+          console.error('❌ Error auto-syncing mobile number:', error);
+        });
       }
     }
   }, [currentUser, userProfile]);
@@ -125,6 +137,73 @@ function Dashboard() {
       <Header />
 
       <div className="container mx-auto px-4 py-6 md:py-8">
+        {/* Quick Actions - Mobile Horizontal Scroll, Desktop Grid */}
+        <div className="mb-6 md:mb-8">
+          <h3 className="text-2xl md:text-3xl font-black text-white mb-4 px-1">⚡ Quick Actions</h3>
+
+          {/* Mobile: Horizontal Scroll */}
+          <div className="md:hidden overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+            <div className="flex gap-3 min-w-max">
+              <Link
+                to="/create-tournament"
+                className="flex-shrink-0 w-48 bg-gradient-to-br from-purple-500/10 to-blue-500/10 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-5 active:scale-95 transition-all"
+              >
+                <div className="text-4xl mb-3">🏆</div>
+                <h4 className="text-white font-bold text-base mb-1">Create Tournament</h4>
+                <p className="text-slate-400 text-xs">Organize full tournament</p>
+              </Link>
+
+              <Link
+                to="/create-team"
+                className="flex-shrink-0 w-48 bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl rounded-2xl border border-green-500/20 p-5 active:scale-95 transition-all"
+              >
+                <div className="text-4xl mb-3">👥</div>
+                <h4 className="text-white font-bold text-base mb-1">Create Team</h4>
+                <p className="text-slate-400 text-xs">Build your squad</p>
+              </Link>
+
+              <Link
+                to="/create-match"
+                className="flex-shrink-0 w-48 bg-gradient-to-br from-orange-500/10 to-red-500/10 backdrop-blur-xl rounded-2xl border border-orange-500/20 p-5 active:scale-95 transition-all"
+              >
+                <div className="text-4xl mb-3">⚽</div>
+                <h4 className="text-white font-bold text-base mb-1">Quick Match</h4>
+                <p className="text-slate-400 text-xs">Start match now</p>
+              </Link>
+            </div>
+          </div>
+
+          {/* Desktop: Grid */}
+          <div className="hidden md:grid grid-cols-3 gap-4">
+            <Link
+              to="/create-tournament"
+              className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-purple-500/40 hover:scale-105 transition-all group"
+            >
+              <div className="text-5xl mb-3 group-hover:scale-110 transition-transform">🏆</div>
+              <h4 className="text-white font-bold text-xl mb-2">Create Tournament</h4>
+              <p className="text-slate-400 text-sm">Organize a full tournament with multiple teams</p>
+            </Link>
+
+            <Link
+              to="/create-team"
+              className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl rounded-2xl border border-green-500/20 p-6 hover:border-green-500/40 hover:scale-105 transition-all group"
+            >
+              <div className="text-5xl mb-3 group-hover:scale-110 transition-transform">👥</div>
+              <h4 className="text-white font-bold text-xl mb-2">Create Team</h4>
+              <p className="text-slate-400 text-sm">Build your squad and invite players</p>
+            </Link>
+
+            <Link
+              to="/create-match"
+              className="bg-gradient-to-br from-orange-500/10 to-red-500/10 backdrop-blur-xl rounded-2xl border border-orange-500/20 p-6 hover:border-orange-500/40 hover:scale-105 transition-all group"
+            >
+              <div className="text-5xl mb-3 group-hover:scale-110 transition-transform">⚽</div>
+              <h4 className="text-white font-bold text-xl mb-2">Quick Match</h4>
+              <p className="text-slate-400 text-sm">Start a friendly match right now</p>
+            </Link>
+          </div>
+        </div>
+
         {/* Profile Card */}
         <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl rounded-3xl border border-green-500/20 p-6 md:p-8 mb-6 md:mb-8 shadow-2xl">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
@@ -195,36 +274,6 @@ function Dashboard() {
             </div>
           </div>
         )}
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 md:mb-8">
-          <Link
-            to="/create-tournament"
-            className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 backdrop-blur-xl rounded-2xl border border-purple-500/20 p-6 hover:border-purple-500/40 transition-all group"
-          >
-            <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">🏆</div>
-            <h4 className="text-white font-bold text-lg mb-1">Create Tournament</h4>
-            <p className="text-slate-400 text-sm">Organize a full tournament</p>
-          </Link>
-
-          <Link
-            to="/create-team"
-            className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl rounded-2xl border border-green-500/20 p-6 hover:border-green-500/40 transition-all group"
-          >
-            <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">👥</div>
-            <h4 className="text-white font-bold text-lg mb-1">Create Team</h4>
-            <p className="text-slate-400 text-sm">Build your squad</p>
-          </Link>
-
-          <Link
-            to="/create-match"
-            className="bg-gradient-to-br from-orange-500/10 to-red-500/10 backdrop-blur-xl rounded-2xl border border-orange-500/20 p-6 hover:border-orange-500/40 transition-all group"
-          >
-            <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">⚽</div>
-            <h4 className="text-white font-bold text-lg mb-1">Quick Match</h4>
-            <p className="text-slate-400 text-sm">Start a match now</p>
-          </Link>
-        </div>
 
         {/* My Tournaments Section */}
         <div className="mb-6 md:mb-8">

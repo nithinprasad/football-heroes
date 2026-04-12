@@ -262,11 +262,31 @@ class TournamentService {
         throw new Error('At least 2 teams required to generate fixtures');
       }
 
+      // Convert Firestore Timestamp to Date properly
+      let startDate: Date;
+      if (tournament.startDate instanceof Date) {
+        startDate = tournament.startDate;
+      } else if (tournament.startDate && typeof tournament.startDate === 'object' && 'toDate' in tournament.startDate) {
+        // Firestore Timestamp
+        startDate = (tournament.startDate as any).toDate();
+      } else if (tournament.startDate) {
+        // String or number
+        startDate = new Date(tournament.startDate);
+      } else {
+        // No start date, use today
+        startDate = new Date();
+      }
+
+      // Validate the date
+      if (isNaN(startDate.getTime())) {
+        throw new Error('Invalid tournament start date');
+      }
+
       const fixtures = FixtureGenerator.generateFixtures({
         tournamentId,
         teams: tournament.teamIds,
         format: tournament.format,
-        startDate: tournament.startDate as any,
+        startDate,
         venue: tournament.location,
         numberOfGroups: tournament.numberOfGroups,
       });

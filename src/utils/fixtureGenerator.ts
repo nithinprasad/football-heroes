@@ -52,8 +52,8 @@ export class FixtureGenerator {
         }));
 
         matchNumber++;
-        // Schedule next match 2 days later
-        matchDate.setDate(matchDate.getDate() + 2);
+        // Schedule next match 2 days later (create new Date to avoid mutation issues)
+        matchDate = new Date(matchDate.getTime() + (2 * 24 * 60 * 60 * 1000));
       }
     }
 
@@ -145,13 +145,13 @@ export class FixtureGenerator {
           }));
 
           matchNumber++;
-          matchDate.setDate(matchDate.getDate() + 1);
+          matchDate = new Date(matchDate.getTime() + (24 * 60 * 60 * 1000)); // +1 day
         }
       }
     });
 
     // Add gap between group stage and knockout
-    matchDate.setDate(matchDate.getDate() + 3);
+    matchDate = new Date(matchDate.getTime() + (3 * 24 * 60 * 60 * 1000)); // +3 days
 
     // Placeholder knockout matches
     // In reality, these would be created after group stage completion
@@ -284,7 +284,7 @@ export class FixtureGenerator {
           matchNumber,
         }));
         matchNumber++;
-        matchDate.setDate(matchDate.getDate() + 2);
+        matchDate = new Date(matchDate.getTime() + (2 * 24 * 60 * 60 * 1000)); // +2 days
       }
     }
 

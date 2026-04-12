@@ -641,6 +641,7 @@ function TournamentDetail() {
                                 📋 Share
                               </button>
                             </div>
+                          </div>
                         </div>
                       ))}
                     </div>

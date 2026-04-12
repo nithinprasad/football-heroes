@@ -567,94 +567,96 @@ function TournamentDetail() {
                 <p className="text-slate-400 text-sm md:text-base">No matches scheduled yet</p>
               </div>
             ) : (
-              Object.entries(groupedMatches).map(([group, groupMatches]) => (
-                <div key={group}>
-                  <h3 className="text-xl md:text-2xl font-bold text-white mb-4">{group}</h3>
-                  <div className="space-y-3 md:space-y-4">
-                    {groupMatches.map((match) => (
-                      <div
-                        key={match.id}
-                        className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-white/10 p-4 md:p-6 hover:bg-slate-800/70 transition-all"
-                      >
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                          <span className="text-xs md:text-sm text-slate-400">
-                            {formatDateTime(match.matchDate)} • 📍 {match.venue}
-                          </span>
-                          {getStatusBadge(match.status)}
-                        </div>
-
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex-1 text-center md:text-left">
-                            <div className="text-base md:text-lg font-bold text-white">
-                              {teams[match.homeTeamId]?.name || 'TBD'}
-                            </div>
+              <>
+                {Object.entries(groupedMatches).map(([group, groupMatches]) => (
+                  <div key={group}>
+                    <h3 className="text-xl md:text-2xl font-bold text-white mb-4">{group}</h3>
+                    <div className="space-y-3 md:space-y-4">
+                      {groupMatches.map((match) => (
+                        <div
+                          key={match.id}
+                          className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-white/10 p-4 md:p-6 hover:bg-slate-800/70 transition-all"
+                        >
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                            <span className="text-xs md:text-sm text-slate-400">
+                              {formatDateTime(match.matchDate)} • 📍 {match.venue}
+                            </span>
+                            {getStatusBadge(match.status)}
                           </div>
 
-                          <div className="px-4 md:px-8">
-                            {match.status === 'COMPLETED' || match.status === 'ONGOING' ? (
-                              <div className="text-3xl md:text-4xl font-black text-white">
-                                {match.score.home} - {match.score.away}
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex-1 text-center md:text-left">
+                              <div className="text-base md:text-lg font-bold text-white">
+                                {teams[match.homeTeamId]?.name || 'TBD'}
                               </div>
-                            ) : (
-                              <div className="text-2xl text-slate-500 font-bold">vs</div>
-                            )}
-                          </div>
+                            </div>
 
-                          <div className="flex-1 text-center md:text-right">
-                            <div className="text-base md:text-lg font-bold text-white">
-                              {teams[match.awayTeamId]?.name || 'TBD'}
+                            <div className="px-4 md:px-8">
+                              {match.status === 'COMPLETED' || match.status === 'ONGOING' ? (
+                                <div className="text-3xl md:text-4xl font-black text-white">
+                                  {match.score.home} - {match.score.away}
+                                </div>
+                              ) : (
+                                <div className="text-2xl text-slate-500 font-bold">vs</div>
+                              )}
+                            </div>
+
+                            <div className="flex-1 text-center md:text-right">
+                              <div className="text-base md:text-lg font-bold text-white">
+                                {teams[match.awayTeamId]?.name || 'TBD'}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Action Buttons */}
-                        <div className={`pt-4 border-t border-white/10 flex gap-3 ${canScore && match.status !== 'COMPLETED' ? 'justify-between' : 'justify-center'}`}>
-                          <div className="flex gap-3">
-                            {canScore && match.status !== 'COMPLETED' && (
-                              <button
-                                onClick={() => navigate(`/matches/${match.id}/score`)}
-                                className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/20 text-sm"
-                              >
-                                {match.status === 'ONGOING' ? '🔴 Continue Scoring' : '▶️ Start Match'}
-                              </button>
-                            )}
+                          {/* Action Buttons */}
+                          <div className={`pt-4 border-t border-white/10 flex gap-3 ${canScore && match.status !== 'COMPLETED' ? 'justify-between' : 'justify-center'}`}>
+                            <div className="flex gap-3">
+                              {canScore && match.status !== 'COMPLETED' && (
+                                <button
+                                  onClick={() => navigate(`/matches/${match.id}/score`)}
+                                  className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/20 text-sm"
+                                >
+                                  {match.status === 'ONGOING' ? '🔴 Continue Scoring' : '▶️ Start Match'}
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex gap-3">
+                              {isOrganizer && (
+                                <button
+                                  onClick={() => handleDeleteMatch(match.id)}
+                                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 rounded-xl font-medium transition-all text-sm"
+                                  title="Delete match"
+                                >
+                                  🗑️ Delete
+                                </button>
+                              )}
+                            <button
+                              onClick={() => {
+                                const url = `${window.location.origin}/tournaments/${tournament.id}`;
+                                navigator.clipboard.writeText(url);
+                                toast.success('Match link copied! Share it for live score updates.', 'Copied!');
+                              }}
+                              className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 rounded-xl font-medium transition-all text-sm"
+                            >
+                              📋 Share
+                            </button>
                           </div>
-                          <div className="flex gap-3">
-                            {isOrganizer && (
-                              <button
-                                onClick={() => handleDeleteMatch(match.id)}
-                                className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 rounded-xl font-medium transition-all text-sm"
-                                title="Delete match"
-                              >
-                                🗑️ Delete
-                              </button>
-                            )}
-                          <button
-                            onClick={() => {
-                              const url = `${window.location.origin}/tournaments/${tournament.id}`;
-                              navigator.clipboard.writeText(url);
-                              toast.success('Match link copied! Share it for live score updates.', 'Copied!');
-                            }}
-                            className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 rounded-xl font-medium transition-all text-sm"
-                          >
-                            📋 Share
-                          </button>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))}
 
-            {/* Tournament Bracket (for knockout stages) */}
-            {matches.some((m) => ['QF', 'SF', 'FINAL', 'R16', 'R32'].includes(m.stage)) && (
-              <div className="mt-8">
-                <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                  🏆 Knockout Bracket
-                </h3>
-                <TournamentBracket matches={matches} teams={teams} />
-              </div>
+                {/* Tournament Bracket (for knockout stages) */}
+                {matches.some((m) => ['QF', 'SF', 'FINAL', 'R16', 'R32'].includes(m.stage)) && (
+                  <div className="mt-8">
+                    <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                      🏆 Knockout Bracket
+                    </h3>
+                    <TournamentBracket matches={matches} teams={teams} />
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

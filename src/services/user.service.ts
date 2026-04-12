@@ -431,20 +431,36 @@ class UserService {
     try {
       const querySnapshot = await getDocs(this.usersCollection);
       const users: User[] = [];
-      const search = searchTerm.toLowerCase().replace(/\s+/g, '');
+      const searchLower = searchTerm.toLowerCase().trim();
+
+      // Extract digits for phone search
+      const searchDigits = searchTerm.replace(/\D/g, '');
+
+      // Determine if this is a phone number search (8+ digits)
+      const isPhoneSearch = searchDigits.length >= 8;
 
       querySnapshot.forEach((doc) => {
         const user = { ...doc.data(), id: doc.id } as User;
-        const userName = (user.name || '').toLowerCase();
-        const userPhone = (user.mobileNumber || '').replace(/\s+/g, '').replace(/\D/g, '');
-        const searchPhone = searchTerm.replace(/\s+/g, '').replace(/\D/g, '');
 
-        // Match by name or phone number
-        if (
-          userName.includes(searchTerm.toLowerCase()) ||
-          userPhone.includes(searchPhone)
-        ) {
-          users.push(user);
+        if (isPhoneSearch) {
+          // Phone number search - extract digits from user's phone
+          const userPhoneDigits = (user.mobileNumber || '').replace(/\D/g, '');
+
+          // Match if the last 10 digits match (handles country codes)
+          // e.g., searching "+919876543210" will match stored "+919876543210"
+          // or searching "9876543210" will match stored "+919876543210"
+          const userLast10 = userPhoneDigits.slice(-10);
+          const searchLast10 = searchDigits.slice(-10);
+
+          if (userPhoneDigits === searchDigits || userLast10 === searchLast10) {
+            users.push(user);
+          }
+        } else {
+          // Name search - only match if name starts with search term
+          const userName = (user.name || '').toLowerCase().trim();
+          if (userName.startsWith(searchLower)) {
+            users.push(user);
+          }
         }
       });
 

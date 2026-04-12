@@ -101,7 +101,19 @@ function ManageTeam() {
   const handleSearchPlayers = async () => {
     try {
       setSearching(true);
-      const results = await userService.searchUsers(searchQuery);
+
+      // Determine if search query is a phone number
+      const digitsOnly = searchQuery.replace(/\D/g, '');
+      const isPhoneNumber = digitsOnly.length >= 8;
+
+      // If phone search, prepend country code for the search
+      let searchTerm = searchQuery;
+      if (isPhoneNumber) {
+        // Search with full international number
+        searchTerm = `${countryCode.dialCode}${digitsOnly}`;
+      }
+
+      const results = await userService.searchUsers(searchTerm);
 
       // Filter out players already in team
       const availablePlayers = results.filter(
@@ -110,16 +122,12 @@ function ManageTeam() {
 
       setSearchResults(availablePlayers);
 
-      // Determine if search query is a phone number
-      // Phone number: contains mostly digits, at least 8 digits
-      const digitsOnly = searchQuery.replace(/\D/g, '');
-      const isPhoneNumber = digitsOnly.length >= 8;
-
       // Check if there's an exact match in results
       const hasExactMatch = availablePlayers.some((user) => {
         if (isPhoneNumber) {
           const userPhone = (user.mobileNumber || '').replace(/\D/g, '');
-          return userPhone === digitsOnly;
+          const fullSearchPhone = `${countryCode.dialCode.replace(/\D/g, '')}${digitsOnly}`;
+          return userPhone === fullSearchPhone || userPhone.endsWith(digitsOnly);
         } else {
           const userName = (user.name || '').toLowerCase().trim();
           const searchName = searchQuery.toLowerCase().trim();
@@ -422,29 +430,75 @@ function ManageTeam() {
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Search by name or phone number
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="e.g., John Doe or 9876543210"
-                    className="w-full px-4 py-3 pr-10 bg-slate-800 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => {
-                        setSearchQuery('');
-                        setSearchResults([]);
-                        setCreatingNew(false);
-                        setNewPlayerName('');
-                        setNewPlayerPhone('');
+
+                {/* Check if it's a phone search to show country code selector */}
+                {searchQuery.replace(/\D/g, '').length >= 8 ? (
+                  <div className="flex gap-2">
+                    <select
+                      value={countryCode.dialCode}
+                      onChange={(e) => {
+                        const selected = countryCodes.find((c) => c.dialCode === e.target.value);
+                        if (selected) setCountryCode(selected);
                       }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                      className="w-32 px-3 py-3 bg-slate-800 border border-white/10 rounded-xl text-white text-sm focus:ring-2 focus:ring-green-500"
                     >
-                      ✕
-                    </button>
-                  )}
-                </div>
+                      {countryCodes.map((country) => (
+                        <option key={country.code} value={country.dialCode}>
+                          {country.flag} {country.dialCode}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="9876543210"
+                        className="w-full px-4 py-3 pr-10 bg-slate-800 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => {
+                            setSearchQuery('');
+                            setSearchResults([]);
+                            setCreatingNew(false);
+                            setNewPlayerName('');
+                            setNewPlayerPhone('');
+                          }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="e.g., John Doe or 9876543210"
+                      className="w-full px-4 py-3 pr-10 bg-slate-800 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => {
+                          setSearchQuery('');
+                          setSearchResults([]);
+                          setCreatingNew(false);
+                          setNewPlayerName('');
+                          setNewPlayerPhone('');
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {searching && (
                   <div className="flex items-center gap-2 mt-2 text-sm text-blue-400">
                     <div className="w-3 h-3 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin"></div>
@@ -460,7 +514,7 @@ function ManageTeam() {
                   <p className="text-xs text-slate-400 mt-2">
                     {searchQuery.replace(/\D/g, '').length >= 8 ? (
                       <span className="flex items-center gap-1">
-                        <span>📱</span> Searching by phone number
+                        <span>📱</span> Searching with country code: {countryCode.flag} {countryCode.dialCode}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1">
@@ -474,9 +528,9 @@ function ManageTeam() {
               {/* Search Results */}
               {searchResults.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
-                    <span className="text-blue-400">🔍</span>
-                    {searchResults.length} similar player{searchResults.length !== 1 ? 's' : ''} found
+                  <p className="text-sm font-medium text-green-400 mb-3 flex items-center gap-2">
+                    <span>✓</span>
+                    {searchResults.length} player{searchResults.length !== 1 ? 's' : ''} found
                   </p>
                   <div className="space-y-2">
                     {searchResults.map((user) => (

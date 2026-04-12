@@ -108,9 +108,10 @@ service cloud.firestore {
         isAdmin()
       );
 
-      // Only creator or admin can delete
+      // Match creator, tournament organizers, or admin can delete
       allow delete: if isSignedIn() && (
         resource.data.createdBy == request.auth.uid ||
+        (!('tournamentId' in resource.data) || resource.data.tournamentId == null || isOrganizer(resource.data.tournamentId)) ||
         isAdmin()
       );
     }

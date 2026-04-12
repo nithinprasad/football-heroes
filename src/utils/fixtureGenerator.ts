@@ -1,5 +1,10 @@
 import { Match, MatchStage } from '../types';
 
+export interface FixtureScheduling {
+  daysBetweenMatches: number; // Days between consecutive matches
+  restDaysBetweenRounds?: number; // Extra rest days between rounds (e.g., group to knockout)
+}
+
 export interface FixtureOptions {
   tournamentId: string;
   teams: string[];
@@ -8,6 +13,7 @@ export interface FixtureOptions {
   venue: string;
   numberOfGroups?: number;
   teamsPerGroup?: number;
+  scheduling?: FixtureScheduling; // Optional scheduling parameters
 }
 
 export class FixtureGenerator {
@@ -32,10 +38,13 @@ export class FixtureGenerator {
    * Every team plays against every other team once
    */
   private static generateLeagueFixtures(options: FixtureOptions): Match[] {
-    const { teams, tournamentId, startDate, venue } = options;
+    const { teams, tournamentId, startDate, venue, scheduling } = options;
     const matches: Match[] = [];
     let matchDate = new Date(startDate);
     let matchNumber = 1;
+
+    // Use provided scheduling or default to 2 days between matches
+    const daysBetween = scheduling?.daysBetweenMatches || 2;
 
     // Round Robin algorithm
     for (let i = 0; i < teams.length; i++) {
@@ -52,8 +61,8 @@ export class FixtureGenerator {
         }));
 
         matchNumber++;
-        // Schedule next match 2 days later (create new Date to avoid mutation issues)
-        matchDate = new Date(matchDate.getTime() + (2 * 24 * 60 * 60 * 1000));
+        // Schedule next match based on configured days
+        matchDate = new Date(matchDate.getTime() + (daysBetween * 24 * 60 * 60 * 1000));
       }
     }
 
@@ -118,10 +127,14 @@ export class FixtureGenerator {
    * Group stage followed by knockout rounds
    */
   private static generateLeagueKnockoutFixtures(options: FixtureOptions): Match[] {
-    const { teams, tournamentId, startDate, venue, numberOfGroups = 2 } = options;
+    const { teams, tournamentId, startDate, venue, numberOfGroups = 2, scheduling } = options;
     const matches: Match[] = [];
     let matchDate = new Date(startDate);
     let matchNumber = 1;
+
+    // Use provided scheduling or defaults
+    const daysBetween = scheduling?.daysBetweenMatches || 1;
+    const restDays = scheduling?.restDaysBetweenRounds || 3;
 
     // Divide teams into groups
     const groups = this.divideIntoGroups(teams, numberOfGroups);
@@ -145,13 +158,13 @@ export class FixtureGenerator {
           }));
 
           matchNumber++;
-          matchDate = new Date(matchDate.getTime() + (24 * 60 * 60 * 1000)); // +1 day
+          matchDate = new Date(matchDate.getTime() + (daysBetween * 24 * 60 * 60 * 1000));
         }
       }
     });
 
     // Add gap between group stage and knockout
-    matchDate = new Date(matchDate.getTime() + (3 * 24 * 60 * 60 * 1000)); // +3 days
+    matchDate = new Date(matchDate.getTime() + (restDays * 24 * 60 * 60 * 1000));
 
     // Placeholder knockout matches
     // In reality, these would be created after group stage completion
@@ -171,6 +184,7 @@ export class FixtureGenerator {
       }));
 
       matchNumber++;
+      matchDate = new Date(matchDate.getTime() + (daysBetween * 24 * 60 * 60 * 1000));
     }
 
     return matches;
@@ -247,7 +261,8 @@ export class FixtureGenerator {
     currentMatches: Match[],
     tournamentId: string,
     venue: string,
-    startDate: Date
+    startDate: Date,
+    daysBetweenMatches: number = 2
   ): Match[] {
     const winners: string[] = [];
 
@@ -284,7 +299,7 @@ export class FixtureGenerator {
           matchNumber,
         }));
         matchNumber++;
-        matchDate = new Date(matchDate.getTime() + (2 * 24 * 60 * 60 * 1000)); // +2 days
+        matchDate = new Date(matchDate.getTime() + (daysBetweenMatches * 24 * 60 * 60 * 1000));
       }
     }
 

@@ -109,6 +109,7 @@ export interface Match {
   playerStats?: PlayerMatchStats[];
   createdBy?: string; // For standalone matches
   matchDuration?: number; // in minutes (defaults to tournament setting)
+  extraTimeDuration?: number; // Extra time duration in minutes for knockout matches (typically 30 mins)
   currentTime?: number; // current match time in seconds
   halfTimeReached?: boolean; // whether halftime has been reached
   startedBy?: string; // user who started the match

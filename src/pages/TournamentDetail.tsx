@@ -12,6 +12,9 @@ import StandingsCalculator from '../utils/standingsCalculator';
 import JoinTournamentModal from '../components/JoinTournamentModal';
 import ManageTeamsModal from '../components/ManageTeamsModal';
 import ImageUpload from '../components/ImageUpload';
+import FixtureGenerationModal from '../components/FixtureGenerationModal';
+import ManualMatchModal from '../components/ManualMatchModal';
+import TournamentBracket from '../components/TournamentBracket';
 import { handleError } from '../utils/errorHandler';
 
 function TournamentDetail() {
@@ -30,6 +33,8 @@ function TournamentDetail() {
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showManageModal, setShowManageModal] = useState(false);
+  const [showFixtureModal, setShowFixtureModal] = useState(false);
+  const [showManualMatchModal, setShowManualMatchModal] = useState(false);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [editingLogo, setEditingLogo] = useState(false);
 
@@ -150,6 +155,47 @@ function TournamentDetail() {
       return url;
     } catch (error: any) {
       throw new Error(handleError(error, 'Upload Logo'));
+    }
+  };
+
+  const handleGenerateFixtures = async (scheduling: { daysBetweenMatches: number; restDaysBetweenRounds?: number }) => {
+    try {
+      await tournamentService.generateFixtures(tournament!.id, scheduling);
+      toast.success('Fixtures generated successfully!', 'Success!');
+      await loadTournamentData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to generate fixtures', 'Error');
+    }
+  };
+
+  const handleCreateManualMatch = async (matchData: {
+    homeTeamId: string;
+    awayTeamId: string;
+    stage: any;
+    groupName?: string;
+    matchDate: Date;
+    venue: string;
+    extraTimeDuration?: number;
+  }) => {
+    try {
+      await tournamentService.createManualMatch(tournament!.id, matchData);
+      toast.success('Match created successfully!', 'Success!');
+      await loadTournamentData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create match', 'Error');
+    }
+  };
+
+  const handleDeleteMatch = async (matchId: string) => {
+    if (!confirm('Are you sure you want to delete this match? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      await matchService.deleteMatch(matchId);
+      toast.success('Match deleted successfully!', 'Success!');
+      await loadTournamentData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete match', 'Error');
     }
   };
 
@@ -352,20 +398,16 @@ function TournamentDetail() {
               </div>
               <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={async () => {
-                    if (confirm('Generate fixtures for all teams? This will create matches based on the tournament format.')) {
-                      try {
-                        await tournamentService.generateFixtures(tournament.id);
-                        toast.success('Fixtures generated successfully!', 'Success!');
-                        loadTournamentData();
-                      } catch (error: any) {
-                        toast.error(error.message || 'Failed to generate fixtures', 'Error');
-                      }
-                    }
-                  }}
+                  onClick={() => setShowFixtureModal(true)}
                   className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 rounded-lg font-medium transition-all text-sm"
                 >
                   📅 Generate Fixtures
+                </button>
+                <button
+                  onClick={() => setShowManualMatchModal(true)}
+                  className="px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 text-green-400 rounded-lg font-medium transition-all text-sm"
+                >
+                  ➕ Add Match
                 </button>
                 <button
                   onClick={() => setShowManageModal(true)}
@@ -410,6 +452,88 @@ function TournamentDetail() {
               <span className="text-xl md:text-2xl">🔴</span>
               <span>{liveMatches.length} match{liveMatches.length !== 1 ? 'es' : ''} currently live!</span>
             </div>
+          </div>
+        )}
+
+        {/* Standings Preview */}
+        {standings && (
+          <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden mb-6 md:mb-8">
+            <div className="px-6 py-4 bg-slate-900/50 border-b border-white/10 flex items-center justify-between">
+              <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                📊 Current Standings
+              </h2>
+              <button
+                onClick={() => setActiveTab('standings')}
+                className="text-sm text-green-400 hover:text-green-300 font-medium"
+              >
+                View Full →
+              </button>
+            </div>
+
+            {standings.groupStandings ? (
+              <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {Object.entries(standings.groupStandings).slice(0, 4).map(([groupName, groupData]: [string, any]) => (
+                  <div key={groupName}>
+                    <h3 className="text-lg font-bold text-white mb-3">{groupName}</h3>
+                    <div className="space-y-2">
+                      {groupData.slice(0, 4).map((standing: any, idx: number) => (
+                        <div
+                          key={standing.teamId}
+                          className={`flex items-center justify-between p-3 rounded-lg ${
+                            idx === 0 ? 'bg-green-500/10 border border-green-500/30' : 'bg-slate-900/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 flex-1">
+                            <span className="text-sm font-bold text-slate-400 w-6">{standing.position}</span>
+                            <Link
+                              to={`/teams/${standing.teamId}`}
+                              className="font-medium text-white hover:text-green-400 transition-colors truncate"
+                            >
+                              {teams[standing.teamId]?.name || standing.teamId}
+                            </Link>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="text-slate-400">{standing.matchesPlayed}P</span>
+                            <span className="text-green-400">{standing.wins}W</span>
+                            <span className="font-bold text-green-400 min-w-[2rem] text-right">{standing.points}pts</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : standings.overallStandings ? (
+              <div className="p-4 md:p-6">
+                <div className="space-y-2">
+                  {standings.overallStandings.slice(0, 5).map((standing: any, idx: number) => (
+                    <div
+                      key={standing.teamId}
+                      className={`flex items-center justify-between p-4 rounded-lg ${
+                        idx === 0 ? 'bg-green-500/10 border border-green-500/30' : 'bg-slate-900/30'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <span className="text-lg font-bold text-slate-400 w-8">{standing.position}</span>
+                        <Link
+                          to={`/teams/${standing.teamId}`}
+                          className="text-lg font-bold text-white hover:text-green-400 transition-colors"
+                        >
+                          {teams[standing.teamId]?.name || standing.teamId}
+                        </Link>
+                      </div>
+                      <div className="flex items-center gap-6 text-sm">
+                        <span className="text-slate-400">{standing.matchesPlayed} played</span>
+                        <span className="text-green-400">{standing.wins}W</span>
+                        <span className="text-yellow-400">{standing.draws}D</span>
+                        <span className="text-red-400">{standing.losses}L</span>
+                        <span className="font-black text-green-400 text-lg min-w-[3rem] text-right">{standing.points} pts</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -484,15 +608,27 @@ function TournamentDetail() {
                         </div>
 
                         {/* Action Buttons */}
-                        <div className={`pt-4 border-t border-white/10 ${canScore && match.status !== 'COMPLETED' ? 'flex gap-3 justify-center' : 'text-center'}`}>
-                          {canScore && match.status !== 'COMPLETED' && (
-                            <button
-                              onClick={() => navigate(`/matches/${match.id}/score`)}
-                              className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/20 text-sm"
-                            >
-                              {match.status === 'ONGOING' ? '🔴 Continue Scoring' : '▶️ Start Match'}
-                            </button>
-                          )}
+                        <div className={`pt-4 border-t border-white/10 flex gap-3 ${canScore && match.status !== 'COMPLETED' ? 'justify-between' : 'justify-center'}`}>
+                          <div className="flex gap-3">
+                            {canScore && match.status !== 'COMPLETED' && (
+                              <button
+                                onClick={() => navigate(`/matches/${match.id}/score`)}
+                                className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/20 text-sm"
+                              >
+                                {match.status === 'ONGOING' ? '🔴 Continue Scoring' : '▶️ Start Match'}
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex gap-3">
+                            {isOrganizer && (
+                              <button
+                                onClick={() => handleDeleteMatch(match.id)}
+                                className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 rounded-xl font-medium transition-all text-sm"
+                                title="Delete match"
+                              >
+                                🗑️ Delete
+                              </button>
+                            )}
                           <button
                             onClick={() => {
                               const url = `${window.location.origin}/tournaments/${tournament.id}`;
@@ -509,6 +645,16 @@ function TournamentDetail() {
                   </div>
                 </div>
               ))
+            )}
+
+            {/* Tournament Bracket (for knockout stages) */}
+            {matches.some((m) => ['QF', 'SF', 'FINAL', 'R16', 'R32'].includes(m.stage)) && (
+              <div className="mt-8">
+                <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                  🏆 Knockout Bracket
+                </h3>
+                <TournamentBracket matches={matches} teams={teams} />
+              </div>
             )}
           </div>
         )}
@@ -765,6 +911,25 @@ function TournamentDetail() {
           onUpdate={() => {
             loadTournamentData();
           }}
+        />
+      )}
+
+      {showFixtureModal && tournament && (
+        <FixtureGenerationModal
+          isOpen={showFixtureModal}
+          onClose={() => setShowFixtureModal(false)}
+          onGenerate={handleGenerateFixtures}
+          tournamentFormat={tournament.format}
+        />
+      )}
+
+      {showManualMatchModal && tournament && (
+        <ManualMatchModal
+          isOpen={showManualMatchModal}
+          onClose={() => setShowManualMatchModal(false)}
+          onCreateMatch={handleCreateManualMatch}
+          teams={Object.values(teams)}
+          defaultVenue={tournament.location}
         />
       )}
     </div>

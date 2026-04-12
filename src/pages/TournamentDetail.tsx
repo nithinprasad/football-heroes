@@ -630,17 +630,17 @@ function TournamentDetail() {
                                   🗑️ Delete
                                 </button>
                               )}
-                            <button
-                              onClick={() => {
-                                const url = `${window.location.origin}/tournaments/${tournament.id}`;
-                                navigator.clipboard.writeText(url);
-                                toast.success('Match link copied! Share it for live score updates.', 'Copied!');
-                              }}
-                              className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 rounded-xl font-medium transition-all text-sm"
-                            >
-                              📋 Share
-                            </button>
-                          </div>
+                              <button
+                                onClick={() => {
+                                  const url = `${window.location.origin}/tournaments/${tournament.id}`;
+                                  navigator.clipboard.writeText(url);
+                                  toast.success('Match link copied! Share it for live score updates.', 'Copied!');
+                                }}
+                                className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 rounded-xl font-medium transition-all text-sm"
+                              >
+                                📋 Share
+                              </button>
+                            </div>
                         </div>
                       ))}
                     </div>

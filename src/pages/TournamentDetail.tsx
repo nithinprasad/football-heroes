@@ -164,7 +164,6 @@ function TournamentDetail() {
 
           setTopScorers(playersData);
         }
-      }
     } catch (error) {
       console.error('Error loading tournament:', error);
     } finally {

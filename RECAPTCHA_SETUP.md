@@ -5,34 +5,46 @@
 ### Site Key (Public - Client-Side)
 Used in the frontend for phone authentication via Firebase.
 
-```
-6Letn7IsAAAAAD_hX51SR6zYc0VvZtqzme9av6Bg
-```
+**Location:** Stored in GitHub Secrets as `VITE_RECAPTCHA_SITE_KEY`
 
 **Where it's used:**
 - Firebase Phone Authentication (RecaptchaVerifier)
 - Invisible reCAPTCHA for OTP verification
 - Login page (`src/pages/Login.tsx`)
 
-### Secret Key (Private - Server-Side)
-Used for server-side verification with Google reCAPTCHA API.
+**How to find your site key:**
+1. Go to [Google reCAPTCHA Admin Console](https://www.google.com/recaptcha/admin)
+2. Select your site
+3. Copy the "Site Key" value
 
-```
-RECAPTCHA_SECRET_KEY=6Letn7IsAAAAANUw9FNd1PjOaiC3d4j_HGK7yWFz
-```
+### Secret Key (Private - Server-Side)
+⚠️ **NEVER commit this key to git!**
+
+**Location:** 
+- Stored in GitHub Secrets as `RECAPTCHA_SECRET_KEY`
+- Used only in CI/CD pipeline
+- Should be in `.env.local` for local development (git-ignored)
 
 **Where it should be used:**
 - Firebase Functions (if implementing custom verification)
 - Backend API endpoints that need to verify reCAPTCHA responses
 - Server-side validation before allowing actions
 
+**How to find your secret key:**
+1. Go to [Google reCAPTCHA Admin Console](https://www.google.com/recaptcha/admin)
+2. Select your site
+3. Copy the "Secret Key" value
+4. Store it in GitHub Secrets (never commit to git)
+
 ## Environment Variables
 
 ### Local Development (.env)
 ```env
-VITE_RECAPTCHA_SITE_KEY=6Letn7IsAAAAAD_hX51SR6zYc0VvZtqzme9av6Bg
-RECAPTCHA_SECRET_KEY=6Letn7IsAAAAANUw9FNd1PjOaiC3d4j_HGK7yWFz
+VITE_RECAPTCHA_SITE_KEY=your_site_key_here
+RECAPTCHA_SECRET_KEY=your_secret_key_here
 ```
+
+**⚠️ IMPORTANT:** Replace these placeholder values with your actual keys from the [Google reCAPTCHA Admin Console](https://www.google.com/recaptcha/admin). Never commit real keys to git!
 
 ### GitHub Secrets (CI/CD)
 Both keys are stored as GitHub repository secrets:

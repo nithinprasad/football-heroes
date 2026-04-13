@@ -528,7 +528,7 @@ function InternalMatch() {
           </button>
           <button
             onClick={handleStartMatch}
-            disabled={creating || teamAPlayers.length === 0 || teamBPlayers.length === 0}
+            disabled={creating || teamAStarting.length === 0 || teamBStarting.length === 0}
             className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center justify-center gap-2"
           >
             {creating ? (

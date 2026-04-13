@@ -206,14 +206,20 @@ function TeamProfile() {
                 {players.length} Players • {matches.length} Matches
               </p>
 
-              {/* Manage Team Button (Manager Only) */}
+              {/* Manager Actions */}
               {isManager && (
-                <div className="mt-6">
+                <div className="mt-6 flex flex-wrap gap-3">
                   <Link
                     to={`/teams/${id}/manage`}
                     className="inline-block px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-bold hover:from-purple-600 hover:to-indigo-700 transition-all shadow-lg shadow-purple-500/20"
                   >
                     ⚙️ Manage Team
+                  </Link>
+                  <Link
+                    to={`/teams/${id}/internal-match`}
+                    className="inline-block px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl font-bold hover:from-orange-600 hover:to-red-700 transition-all shadow-lg shadow-orange-500/20"
+                  >
+                    ⚔️ Internal Match
                   </Link>
                 </div>
               )}

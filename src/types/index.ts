@@ -140,6 +140,10 @@ export interface Match {
   startedAt?: Date; // when match was started
   manOfTheMatch?: string; // Player ID of man of the match
   playerRatings?: { [playerId: string]: number }; // Player ratings (1-10)
+  isInternalMatch?: boolean; // True if this is a team scrimmage/internal match
+  internalTeamA?: string[]; // Player IDs assigned to Team A (for internal matches)
+  internalTeamB?: string[]; // Player IDs assigned to Team B (for internal matches)
+  matchName?: string; // Custom name for internal/standalone matches
   createdAt: Date;
   updatedAt: Date;
 }

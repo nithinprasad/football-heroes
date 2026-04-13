@@ -383,13 +383,14 @@ function InternalMatch() {
                           </select>
                         </div>
                         <div className="flex gap-1">
-                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'starting')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Starting">⭐</button>
-                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
-                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'notPlaying')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Team B">→B</button>
+                          <button onClick={() => handleAssignPlayer(player.id, 'A', 'starting')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Starting">⭐</button>
+                          <button onClick={() => handleAssignPlayer(player.id, 'A', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
+                          <button onClick={() => handleAssignPlayer(player.id, 'B', 'notPlaying')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Team B">→B</button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {teamANotPlaying.length === 0 && <p className="text-slate-500 text-sm italic text-center py-2">All players assigned</p>}
               </div>
             </div>

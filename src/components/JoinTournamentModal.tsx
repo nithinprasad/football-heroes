@@ -39,7 +39,14 @@ const JoinTournamentModal = ({
     if (!userProfile) return;
 
     try {
-      const teams = await teamService.getTeamsByIds(userProfile.teamIds);
+      // Ensure teamIds exists and is an array
+      const teamIds = Array.isArray(userProfile.teamIds) ? userProfile.teamIds : [];
+      if (teamIds.length === 0) {
+        setMyTeams([]);
+        return;
+      }
+
+      const teams = await teamService.getTeamsByIds(teamIds);
       // Filter teams where user is manager or captain
       const managedTeams = teams.filter(
         (team) => team.managerId === currentUser?.uid || team.captainId === currentUser?.uid

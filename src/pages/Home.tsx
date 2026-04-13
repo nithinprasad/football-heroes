@@ -402,7 +402,7 @@ function Home() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span>👥</span>
-                        <span>{tournament.teamIds.length} teams</span>
+                        <span>{tournament.teamIds?.length || 0} teams</span>
                       </div>
                     </div>
 

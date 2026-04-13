@@ -110,12 +110,16 @@ export interface PlayerMatchStats {
   ownGoals?: number; // Own goals scored
   cleanSheet?: boolean; // for goalkeepers
   events?: MatchEvent[]; // Timeline of events for this player
+  position?: Position; // Position override for this match
 }
 
 export interface MatchEvent {
-  type: 'goal' | 'assist' | 'yellow' | 'red' | 'owngoal';
+  type: 'goal' | 'assist' | 'yellow' | 'red' | 'owngoal' | 'substitution';
   timestamp: Date; // When the event occurred
   minute?: number; // Match minute when event occurred
+  assistedBy?: string; // Player ID who assisted (for goal events)
+  playerIn?: string; // Player ID coming in (for substitutions)
+  playerOut?: string; // Player ID going out (for substitutions)
 }
 
 export interface Match {
@@ -140,6 +144,30 @@ export interface Match {
   startedAt?: Date; // when match was started
   manOfTheMatch?: string; // Player ID of man of the match
   playerRatings?: { [playerId: string]: number }; // Player ratings (1-10)
+  isInternalMatch?: boolean; // True if this is a team scrimmage/internal match
+  internalTeamA?: string[]; // Player IDs assigned to Team A (for internal matches)
+  internalTeamB?: string[]; // Player IDs assigned to Team B (for internal matches)
+  matchName?: string; // Custom name for internal/standalone matches
+  teamSize?: number; // Team size for internal matches (5, 7, 11, etc.)
+  // Lineup management
+  homeStarting?: string[]; // Home team / Team A starting lineup
+  homeSubs?: string[]; // Home team / Team A substitutes
+  homeNotPlaying?: string[]; // Home team / Team A not playing
+  awayStarting?: string[]; // Away team / Team B starting lineup
+  awaySubs?: string[]; // Away team / Team B substitutes
+  awayNotPlaying?: string[]; // Away team / Team B not playing
+  // Position overrides for this match (playerId -> Position)
+  playerPositions?: { [playerId: string]: Position };
+  // Substitution events (chronological order)
+  substitutions?: Array<{
+    minute: number;
+    playerOut: string;
+    playerIn: string;
+    team: 'home' | 'away';
+    timestamp: Date;
+  }>;
+  // Guest players (players not in team rosters)
+  guestPlayers?: User[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -235,10 +263,39 @@ export interface TopGoalkeeper {
   goalsConceded: number;
 }
 
+// Support Message Types
+export type MessageStatus = 'OPEN' | 'REPLIED' | 'CLOSED';
+
+export interface SupportMessage {
+  id: string;
+  userId: string;
+  userName: string; // Denormalized for display
+  userPhone: string; // Denormalized for display
+  title: string;
+  message: string;
+  status: MessageStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  replies?: MessageReply[];
+}
+
+export interface MessageReply {
+  id: string;
+  adminId: string;
+  adminName: string; // Denormalized for display
+  message: string;
+  createdAt: Date;
+}
+
 // Form Input Types
 export interface SignupFormData {
   name: string;
   mobileNumber: string;
+}
+
+export interface SupportMessageFormData {
+  title: string;
+  message: string;
 }
 
 export interface ProfileFormData {
@@ -251,6 +308,7 @@ export interface ProfileFormData {
 export interface TeamFormData {
   name: string;
   logoURL?: string;
+  location?: string;
 }
 
 export interface TournamentFormData {

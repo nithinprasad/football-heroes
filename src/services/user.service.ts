@@ -150,10 +150,13 @@ class UserService {
       return;
     }
 
-    if (!user.teamIds.includes(teamId)) {
-      console.log('🔄 User exists, updating teamIds. Current teams:', user.teamIds);
+    // Ensure teamIds exists and is an array (for backward compatibility with old user profiles)
+    const currentTeamIds = Array.isArray(user.teamIds) ? user.teamIds : [];
+
+    if (!currentTeamIds.includes(teamId)) {
+      console.log('🔄 User exists, updating teamIds. Current teams:', currentTeamIds);
       await this.updateUser(userId, {
-        teamIds: [...user.teamIds, teamId],
+        teamIds: [...currentTeamIds, teamId],
       });
       console.log('✅ Team added to user successfully');
     } else {
@@ -171,8 +174,11 @@ class UserService {
         throw new Error('User not found');
       }
 
+      // Ensure teamIds exists and is an array (for backward compatibility)
+      const currentTeamIds = Array.isArray(user.teamIds) ? user.teamIds : [];
+
       await this.updateUser(userId, {
-        teamIds: user.teamIds.filter((id) => id !== teamId),
+        teamIds: currentTeamIds.filter((id) => id !== teamId),
       });
     } catch (error) {
       console.error('Error removing team from user:', error);

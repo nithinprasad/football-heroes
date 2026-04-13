@@ -13,6 +13,7 @@ function CreateTeam() {
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
+    location: '',
     logoURL: '',
   });
 
@@ -34,6 +35,7 @@ function CreateTeam() {
 
       const teamId = await teamService.createTeam({
         name: formData.name.trim(),
+        location: formData.location.trim() || undefined,
         logoURL: formData.logoURL.trim() || undefined,
       }, currentUser.uid);
 
@@ -110,6 +112,23 @@ function CreateTeam() {
 
               <div>
                 <label className="block text-sm font-bold text-slate-300 mb-3">
+                  Team Location *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  placeholder="Enter team location (e.g., Mumbai, Delhi NCR)"
+                  className="w-full px-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                />
+                <p className="text-xs text-slate-500 mt-2">
+                  City or area where your team is based
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-300 mb-3">
                   Team Logo URL (Optional)
                 </label>
                 <input
@@ -138,6 +157,12 @@ function CreateTeam() {
                     </div>
                     <div>
                       <div className="text-xl font-bold text-white">{formData.name}</div>
+                      {formData.location && (
+                        <div className="text-sm text-slate-400 flex items-center gap-1">
+                          <span>📍</span>
+                          {formData.location}
+                        </div>
+                      )}
                       <div className="text-sm text-slate-400">Team ID will be generated</div>
                     </div>
                   </div>

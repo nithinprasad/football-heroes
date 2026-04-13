@@ -119,7 +119,7 @@ function TournamentDetail() {
         console.log('📊 Calculating standings:', {
           totalMatches: matchesData.length,
           completedMatches: completedMatches.length,
-          totalTeams: tournamentData.teamIds.length,
+          totalTeams: tournamentData.teamIds?.length || 0,
           matchStatuses: matchesData.map(m => ({ id: m.id, status: m.status }))
         });
 
@@ -388,7 +388,7 @@ function TournamentDetail() {
                 </div>
                 <div>
                   <span className="block text-slate-500 mb-1">👥 Teams</span>
-                  <span className="font-medium text-green-400 text-lg md:text-xl">{tournament.teamIds.length}</span>
+                  <span className="font-medium text-green-400 text-lg md:text-xl">{tournament.teamIds?.length || 0}</span>
                 </div>
                 <div>
                   <span className="block text-slate-500 mb-1">⚽ Matches</span>
@@ -900,7 +900,7 @@ function TournamentDetail() {
 
         {activeTab === 'teams' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {tournament.teamIds.map((teamId) => {
+            {(tournament.teamIds || []).map((teamId) => {
               const team = teams[teamId];
               if (!team) return null;
 

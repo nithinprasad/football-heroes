@@ -19,6 +19,10 @@ import LiveScoring from './pages/LiveScoring';
 import Profile from './pages/Profile';
 import AdminTournaments from './pages/AdminTournaments';
 import JoinTeam from './pages/JoinTeam';
+import InternalMatch from './pages/InternalMatch';
+import FriendlyMatchSetup from './pages/FriendlyMatchSetup';
+import Contact from './pages/Contact';
+import AdminMessages from './pages/AdminMessages';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { currentUser, loading } = useAuth();
@@ -73,6 +77,7 @@ function AppRoutes() {
       <Route path="/teams" element={<Teams />} />
       <Route path="/teams/:id" element={<TeamProfile />} />
       <Route path="/teams/:id/manage" element={<PrivateRoute><ManageTeam /></PrivateRoute>} />
+      <Route path="/teams/:id/internal-match" element={<PrivateRoute><InternalMatch /></PrivateRoute>} />
       <Route path="/teams/join/:id" element={<JoinTeam />} />
       <Route path="/users/:id" element={<UserProfile />} />
       <Route path="/create-tournament" element={<CreateTournament />} />
@@ -89,6 +94,7 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
+      <Route path="/match/friendly-setup" element={<PrivateRoute><FriendlyMatchSetup /></PrivateRoute>} />
 
       {/* Auth Routes */}
       <Route path="/login" element={currentUser ? <Navigate to="/dashboard" /> : <Login />} />
@@ -118,6 +124,14 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
+      <Route
+        path="/contact"
+        element={
+          <PrivateRoute>
+            <Contact />
+          </PrivateRoute>
+        }
+      />
 
       {/* Admin Routes */}
       <Route
@@ -125,6 +139,14 @@ function AppRoutes() {
         element={
           <AdminRoute>
             <AdminTournaments />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/messages"
+        element={
+          <AdminRoute>
+            <AdminMessages />
           </AdminRoute>
         }
       />

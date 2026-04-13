@@ -366,7 +366,7 @@ function Dashboard() {
                     </div>
                   </div>
                   <div className="text-slate-400 text-xs md:text-sm">
-                    👥 {team.playerIds.length} player{team.playerIds.length !== 1 ? 's' : ''}
+                    👥 {team.playerIds?.length || 0} player{(team.playerIds?.length || 0) !== 1 ? 's' : ''}
                     {team.captainId === currentUser?.uid && (
                       <span className="ml-2 px-2 py-0.5 bg-yellow-500/20 border border-yellow-500/30 rounded text-yellow-400 text-xs font-bold">
                         Captain
@@ -467,7 +467,7 @@ function Dashboard() {
             <h3 className="text-sm md:text-base font-bold text-white">My Profile</h3>
           </Link>
 
-          {userProfile?.roles.includes('admin') && (
+          {userProfile?.roles?.includes('admin') && (
             <Link
               to="/admin/tournaments"
               className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-md border border-green-500/30 rounded-2xl p-4 md:p-6 hover:border-green-500/50 transition-all text-center"

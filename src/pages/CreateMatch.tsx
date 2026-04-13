@@ -17,6 +17,7 @@ function CreateMatch() {
   const [awayTeamSearch, setAwayTeamSearch] = useState('');
   const [showHomeDropdown, setShowHomeDropdown] = useState(false);
   const [showAwayDropdown, setShowAwayDropdown] = useState(false);
+  const [matchType, setMatchType] = useState<'friendly' | 'internal'>('friendly');
   const [formData, setFormData] = useState({
     homeTeamId: '',
     awayTeamId: '',
@@ -76,6 +77,17 @@ function CreateMatch() {
     setError('');
 
     try {
+      // Internal match - redirect to team's internal match setup
+      if (matchType === 'internal') {
+        if (!formData.homeTeamId) {
+          throw new Error('Please select a team');
+        }
+        // Navigate to internal match setup page
+        navigate(`/teams/${formData.homeTeamId}/internal-match`);
+        return;
+      }
+
+      // Friendly match - navigate to lineup setup page
       if (!formData.homeTeamId || !formData.awayTeamId) {
         throw new Error('Please select both teams');
       }
@@ -92,17 +104,16 @@ function CreateMatch() {
         throw new Error('Please enter match venue');
       }
 
-      const matchId = await matchService.createStandaloneMatch({
-        homeTeamId: formData.homeTeamId,
-        awayTeamId: formData.awayTeamId,
-        matchDate: new Date(formData.matchDate),
-        venue: formData.venue.trim(),
-        matchDuration: formData.matchDuration,
-        createdBy: currentUser.uid,
+      // Navigate to lineup setup page with match details
+      navigate('/match/friendly-setup', {
+        state: {
+          homeTeamId: formData.homeTeamId,
+          awayTeamId: formData.awayTeamId,
+          matchDate: formData.matchDate,
+          venue: formData.venue.trim(),
+          matchDuration: formData.matchDuration,
+        },
       });
-
-      toast.success('Match created successfully! You can now start scoring.', 'Success!');
-      navigate(`/matches/${matchId}`);
     } catch (err: any) {
       setError(err.message || 'Failed to create match');
     } finally {
@@ -139,7 +150,55 @@ function CreateMatch() {
               <span className="text-green-400 font-semibold">⚽ Match Creator</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-black text-white mb-4">Create a Match</h1>
-            <p className="text-slate-400 text-lg">Set up a standalone match between two teams</p>
+            <p className="text-slate-400 text-lg">
+              {matchType === 'friendly' ? 'Set up a standalone match between two teams' : 'Set up an internal team practice match'}
+            </p>
+          </div>
+
+          {/* Match Type Selector */}
+          <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 mb-6">
+            <h3 className="text-lg font-bold text-white mb-4 text-center">What type of match?</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setMatchType('friendly');
+                  setFormData({ ...formData, awayTeamId: '' }); // Reset away team
+                }}
+                className={`p-6 rounded-2xl border-2 transition-all ${
+                  matchType === 'friendly'
+                    ? 'bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-green-500 shadow-lg shadow-green-500/20'
+                    : 'bg-slate-900/50 border-white/10 hover:border-white/30'
+                }`}
+              >
+                <div className="text-5xl mb-3">⚽</div>
+                <h4 className="text-xl font-bold text-white mb-2">Friendly Match</h4>
+                <p className="text-sm text-slate-400">Match between two different teams</p>
+                {matchType === 'friendly' && (
+                  <div className="mt-3 text-green-400 text-sm font-bold">✓ Selected</div>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMatchType('internal');
+                  setFormData({ ...formData, awayTeamId: '' }); // Reset away team
+                }}
+                className={`p-6 rounded-2xl border-2 transition-all ${
+                  matchType === 'internal'
+                    ? 'bg-gradient-to-br from-orange-500/20 to-red-500/20 border-orange-500 shadow-lg shadow-orange-500/20'
+                    : 'bg-slate-900/50 border-white/10 hover:border-white/30'
+                }`}
+              >
+                <div className="text-5xl mb-3">⚔️</div>
+                <h4 className="text-xl font-bold text-white mb-2">Internal Match</h4>
+                <p className="text-sm text-slate-400">Team scrimmage • Split into two sides</p>
+                {matchType === 'internal' && (
+                  <div className="mt-3 text-orange-400 text-sm font-bold">✓ Selected</div>
+                )}
+              </button>
+            </div>
           </div>
 
           {!currentUser && (
@@ -162,10 +221,10 @@ function CreateMatch() {
           <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-8">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Home Team */}
-                <div className="relative">
+                {/* Home Team / Team Selector */}
+                <div className={`relative ${matchType === 'internal' ? 'md:col-span-2' : ''}`}>
                   <label className="block text-sm font-bold text-slate-300 mb-3">
-                    Home Team *
+                    {matchType === 'internal' ? 'Select Your Team *' : 'Home Team *'}
                   </label>
                   <input
                     type="text"
@@ -181,8 +240,22 @@ function CreateMatch() {
                     required={!formData.homeTeamId}
                   />
                   {formData.homeTeamId && (
-                    <div className="mt-2 px-4 py-2 bg-green-500/10 border border-green-500/30 rounded-lg text-green-400 text-sm flex items-center justify-between">
-                      <span>✓ {getTeamDisplay(formData.homeTeamId)}</span>
+                    <div className="mt-2 px-4 py-2 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center overflow-hidden">
+                          {teams.find(t => t.id === formData.homeTeamId)?.logoURL ? (
+                            <img src={teams.find(t => t.id === formData.homeTeamId)?.logoURL} alt="" className="w-full h-full object-contain p-1" />
+                          ) : (
+                            <span className="text-sm">⚽</span>
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-green-400 text-sm font-bold">✓ {getTeamDisplay(formData.homeTeamId)}</div>
+                          {teams.find(t => t.id === formData.homeTeamId)?.location && (
+                            <div className="text-xs text-green-400/70">📍 {teams.find(t => t.id === formData.homeTeamId)?.location}</div>
+                          )}
+                        </div>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
@@ -207,9 +280,27 @@ function CreateMatch() {
                               setHomeTeamSearch(team.name);
                               setShowHomeDropdown(false);
                             }}
-                            className="w-full px-4 py-3 text-left text-white hover:bg-slate-800 transition-all border-b border-white/5 last:border-b-0"
+                            className="w-full px-4 py-3 text-left text-white hover:bg-slate-800 transition-all border-b border-white/5 last:border-b-0 flex items-center gap-3"
                           >
-                            {team.teamId ? `${team.name} (${team.teamId})` : team.name}
+                            <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {team.logoURL ? (
+                                <img src={team.logoURL} alt="" className="w-full h-full object-contain p-1" />
+                              ) : (
+                                <span className="text-lg">⚽</span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold truncate">
+                                {team.name}
+                                {team.teamId && <span className="text-slate-500 text-xs ml-2">({team.teamId})</span>}
+                              </div>
+                              {team.location && (
+                                <div className="text-xs text-slate-500 flex items-center gap-1">
+                                  <span>📍</span>
+                                  {team.location}
+                                </div>
+                              )}
+                            </div>
                           </button>
                         ))
                       ) : (
@@ -219,7 +310,8 @@ function CreateMatch() {
                   )}
                 </div>
 
-                {/* Away Team */}
+                {/* Away Team - Only for friendly matches */}
+                {matchType === 'friendly' && (
                 <div className="relative">
                   <label className="block text-sm font-bold text-slate-300 mb-3">
                     Away Team *
@@ -238,8 +330,22 @@ function CreateMatch() {
                     required={!formData.awayTeamId}
                   />
                   {formData.awayTeamId && (
-                    <div className="mt-2 px-4 py-2 bg-blue-500/10 border border-blue-500/30 rounded-lg text-blue-400 text-sm flex items-center justify-between">
-                      <span>✓ {getTeamDisplay(formData.awayTeamId)}</span>
+                    <div className="mt-2 px-4 py-2 bg-blue-500/10 border border-blue-500/30 rounded-lg flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center overflow-hidden">
+                          {teams.find(t => t.id === formData.awayTeamId)?.logoURL ? (
+                            <img src={teams.find(t => t.id === formData.awayTeamId)?.logoURL} alt="" className="w-full h-full object-contain p-1" />
+                          ) : (
+                            <span className="text-sm">⚽</span>
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-blue-400 text-sm font-bold">✓ {getTeamDisplay(formData.awayTeamId)}</div>
+                          {teams.find(t => t.id === formData.awayTeamId)?.location && (
+                            <div className="text-xs text-blue-400/70">📍 {teams.find(t => t.id === formData.awayTeamId)?.location}</div>
+                          )}
+                        </div>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
@@ -264,9 +370,27 @@ function CreateMatch() {
                               setAwayTeamSearch(team.name);
                               setShowAwayDropdown(false);
                             }}
-                            className="w-full px-4 py-3 text-left text-white hover:bg-slate-800 transition-all border-b border-white/5 last:border-b-0"
+                            className="w-full px-4 py-3 text-left text-white hover:bg-slate-800 transition-all border-b border-white/5 last:border-b-0 flex items-center gap-3"
                           >
-                            {team.teamId ? `${team.name} (${team.teamId})` : team.name}
+                            <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {team.logoURL ? (
+                                <img src={team.logoURL} alt="" className="w-full h-full object-contain p-1" />
+                              ) : (
+                                <span className="text-lg">⚽</span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold truncate">
+                                {team.name}
+                                {team.teamId && <span className="text-slate-500 text-xs ml-2">({team.teamId})</span>}
+                              </div>
+                              {team.location && (
+                                <div className="text-xs text-slate-500 flex items-center gap-1">
+                                  <span>📍</span>
+                                  {team.location}
+                                </div>
+                              )}
+                            </div>
                           </button>
                         ))
                       ) : (
@@ -275,8 +399,10 @@ function CreateMatch() {
                     </div>
                   )}
                 </div>
+                )}
 
-                {/* Match Date & Time */}
+                {/* Match Date & Time - Only for friendly */}
+                {matchType === 'friendly' && (
                 <div>
                   <label className="block text-sm font-bold text-slate-300 mb-3">
                     Match Date & Time *
@@ -289,8 +415,10 @@ function CreateMatch() {
                     className="w-full px-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   />
                 </div>
+                )}
 
-                {/* Match Duration */}
+                {/* Match Duration - Only for friendly */}
+                {matchType === 'friendly' && (
                 <div>
                   <label className="block text-sm font-bold text-slate-300 mb-3">
                     Match Duration (minutes) *
@@ -317,8 +445,10 @@ function CreateMatch() {
                     className="w-full mt-2 px-4 py-2 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm"
                   />
                 </div>
+                )}
 
-                {/* Venue */}
+                {/* Venue - Only for friendly */}
+                {matchType === 'friendly' && (
                 <div className="md:col-span-2">
                   <label className="block text-sm font-bold text-slate-300 mb-3">
                     Venue *
@@ -332,10 +462,11 @@ function CreateMatch() {
                     className="w-full px-4 py-3 bg-slate-900/50 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   />
                 </div>
+                )}
               </div>
 
-              {/* Match Preview */}
-              {formData.homeTeamId && formData.awayTeamId && (
+              {/* Match Preview - Friendly */}
+              {matchType === 'friendly' && formData.homeTeamId && formData.awayTeamId && (
                 <div className="bg-black/30 rounded-2xl p-6 border border-white/10">
                   <h3 className="text-sm font-bold text-slate-400 mb-4">Match Preview</h3>
                   <div className="flex items-center justify-between">
@@ -359,13 +490,32 @@ function CreateMatch() {
                 </div>
               )}
 
+              {/* Internal Match Info */}
+              {matchType === 'internal' && formData.homeTeamId && (
+                <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-2xl p-6 border border-orange-500/20">
+                  <h3 className="text-sm font-bold text-orange-400 mb-3">⚔️ Internal Match Setup</h3>
+                  <div className="text-white font-bold text-lg mb-2">{getTeamDisplay(formData.homeTeamId)}</div>
+                  <p className="text-slate-400 text-sm">
+                    You'll assign players to Team A and Team B, then set match details and start the scrimmage.
+                  </p>
+                </div>
+              )}
+
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={loading || !currentUser}
-                className="w-full mt-8 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed transition-all shadow-xl shadow-green-500/20"
+                disabled={loading || !currentUser || !formData.homeTeamId}
+                className={`w-full mt-8 text-white py-4 rounded-xl font-bold text-lg disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed transition-all shadow-xl ${
+                  matchType === 'internal'
+                    ? 'bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 shadow-orange-500/20'
+                    : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/20'
+                }`}
               >
-                {loading ? 'Creating Match...' : '⚽ Create Match & Start Scoring'}
+                {loading
+                  ? matchType === 'internal' ? 'Loading...' : 'Creating Match...'
+                  : matchType === 'internal'
+                  ? '⚔️ Setup Internal Match'
+                  : '⚽ Create Match & Start Scoring'}
               </button>
             </form>
 
@@ -382,7 +532,11 @@ function CreateMatch() {
 
           {/* Info */}
           <div className="mt-8 text-center text-slate-400 text-sm">
-            <p>💡 Tip: Make sure both teams have players added before starting the match</p>
+            <p>
+              💡 Tip: {matchType === 'internal'
+                ? 'Internal matches are great for practice sessions and training'
+                : 'Make sure both teams have players added before starting the match'}
+            </p>
           </div>
         </div>
       </div>

@@ -14,6 +14,7 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [newUserId, setNewUserId] = useState<string>('');
+  const [justAuthenticated, setJustAuthenticated] = useState(false);
 
   const { signInWithPhone, signInWithGoogle, verifyOTP, currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
@@ -22,10 +23,24 @@ function Login() {
 
   useEffect(() => {
     // If user is already logged in when visiting login page, redirect
-    if (currentUser && userProfile && step === 'phone') {
+    if (currentUser && userProfile && step === 'phone' && !justAuthenticated) {
       navigate(redirectUrl);
     }
-  }, [currentUser, userProfile, step, navigate, redirectUrl]);
+  }, [currentUser, userProfile, step, navigate, redirectUrl, justAuthenticated]);
+
+  // Handle profile check after authentication
+  useEffect(() => {
+    if (justAuthenticated && currentUser && userProfile) {
+      setJustAuthenticated(false);
+
+      // Check if profile needs to be completed
+      if (!userProfile.name || !userProfile.position) {
+        setStep('setup');
+      } else {
+        navigate(redirectUrl);
+      }
+    }
+  }, [justAuthenticated, currentUser, userProfile, navigate, redirectUrl]);
 
   useEffect(() => {
     // Initialize reCAPTCHA when component mounts (for phone step)
@@ -60,8 +75,8 @@ function Login() {
 
     try {
       await verifyOTP(otp);
-      // Navigate after successful OTP verification
-      navigate(redirectUrl);
+      // Mark that we just authenticated, useEffect will handle profile check
+      setJustAuthenticated(true);
     } catch (err: any) {
       setError(handleError(err, 'Verify OTP'));
     } finally {
@@ -75,8 +90,8 @@ function Login() {
 
     try {
       await signInWithGoogle();
-      // Navigate after successful Google sign in
-      navigate(redirectUrl);
+      // Mark that we just authenticated, useEffect will handle profile check
+      setJustAuthenticated(true);
     } catch (err: any) {
       setError(handleError(err, 'Google Sign In'));
     } finally {
@@ -98,7 +113,8 @@ function Login() {
         userId={currentUser.uid}
         mobileNumber={currentUser.phoneNumber || ''}
         onComplete={handleProfileSetupComplete}
-        onSkip={handleProfileSetupSkip}
+        // Don't allow skipping for new users (no name/position means required setup)
+        onSkip={userProfile?.name && userProfile?.position ? handleProfileSetupSkip : undefined}
       />
     );
   }

@@ -163,5 +163,23 @@ service cloud.firestore {
         isAdmin()
       );
     }
+
+    // Support Messages collection
+    match /supportMessages/{messageId} {
+      // Users can read their own messages, admins can read all
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Authenticated users can create support messages
+      allow create: if isSignedIn();
+
+      // Only admins can update messages (add replies, change status)
+      allow update: if isAdmin();
+
+      // Only admins can delete messages
+      allow delete: if isAdmin();
+    }
   }
 }

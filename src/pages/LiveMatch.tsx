@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -16,6 +16,7 @@ function LiveMatch() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const isDeletingRef = useRef(false);
 
   const [match, setMatch] = useState<Match | null>(null);
   const [homeTeam, setHomeTeam] = useState<Team | null>(null);
@@ -63,14 +64,76 @@ function LiveMatch() {
             setHomeTeam(homeTeamData);
             setAwayTeam(awayTeamData);
 
+            // Load guest players from match data
+            const guestPlayerMap = new Map<string, User>();
+            if (matchData.guestPlayers) {
+              matchData.guestPlayers.forEach((guest) => {
+                guestPlayerMap.set(guest.id, guest);
+              });
+            }
+
             if (homeTeamData) {
-              const homePlayersData = await userService.getUsersByIds(homeTeamData.playerIds);
-              setHomePlayers(homePlayersData);
+              // Determine player IDs based on match type and lineup data
+              let playerIds: string[];
+
+              if (matchData.isInternalMatch && matchData.internalTeamA) {
+                // Internal match: use internalTeamA
+                playerIds = matchData.internalTeamA;
+              } else if (matchData.homeStarting || matchData.homeSubs || matchData.homeNotPlaying) {
+                // Friendly match with lineup: combine all lineup arrays
+                playerIds = [
+                  ...(matchData.homeStarting || []),
+                  ...(matchData.homeSubs || []),
+                  ...(matchData.homeNotPlaying || []),
+                ];
+              } else {
+                // Fallback to team roster
+                playerIds = homeTeamData.playerIds;
+              }
+
+              const homePlayersData = await Promise.all(
+                playerIds.map(async (pid) => {
+                  // Check if it's a guest player
+                  if (pid.startsWith('guest_')) {
+                    return guestPlayerMap.get(pid) || null;
+                  }
+                  // Otherwise load from database
+                  return userService.getUserById(pid);
+                })
+              );
+              setHomePlayers(homePlayersData.filter((p) => p !== null) as User[]);
             }
 
             if (awayTeamData) {
-              const awayPlayersData = await userService.getUsersByIds(awayTeamData.playerIds);
-              setAwayPlayers(awayPlayersData);
+              // Determine player IDs based on match type and lineup data
+              let playerIds: string[];
+
+              if (matchData.isInternalMatch && matchData.internalTeamB) {
+                // Internal match: use internalTeamB
+                playerIds = matchData.internalTeamB;
+              } else if (matchData.awayStarting || matchData.awaySubs || matchData.awayNotPlaying) {
+                // Friendly match with lineup: combine all lineup arrays
+                playerIds = [
+                  ...(matchData.awayStarting || []),
+                  ...(matchData.awaySubs || []),
+                  ...(matchData.awayNotPlaying || []),
+                ];
+              } else {
+                // Fallback to team roster
+                playerIds = awayTeamData.playerIds;
+              }
+
+              const awayPlayersData = await Promise.all(
+                playerIds.map(async (pid) => {
+                  // Check if it's a guest player
+                  if (pid.startsWith('guest_')) {
+                    return guestPlayerMap.get(pid) || null;
+                  }
+                  // Otherwise load from database
+                  return userService.getUserById(pid);
+                })
+              );
+              setAwayPlayers(awayPlayersData.filter((p) => p !== null) as User[]);
             }
 
             setLoading(false);
@@ -79,8 +142,11 @@ function LiveMatch() {
             setLoading(false);
           }
         } else {
-          toast.error('Match not found', 'Error');
-          navigate('/dashboard');
+          // Only show error if we're not actively deleting the match
+          if (!isDeletingRef.current) {
+            toast.error('Match not found', 'Error');
+            navigate('/dashboard');
+          }
         }
       },
       (error) => {
@@ -112,8 +178,8 @@ function LiveMatch() {
     let updatedStats = [...playerStats];
     let newHomeScore = homeScore;
     let newAwayScore = awayScore;
-    const isHomePlayer = homePlayers.some((p) => p.id === selectedPlayer) || guestPlayers.some((g) => g.id === selectedPlayer && g.team === 'home');
-    const isAwayPlayer = awayPlayers.some((p) => p.id === selectedPlayer) || guestPlayers.some((g) => g.id === selectedPlayer && g.team === 'away');
+    const isHomePlayer = homePlayers.some((p) => p.id === selectedPlayer);
+    const isAwayPlayer = awayPlayers.some((p) => p.id === selectedPlayer);
 
     // Create event with timestamp
     const newEvent: MatchEvent = {
@@ -192,7 +258,6 @@ function LiveMatch() {
 
     const playerName =
       [...homePlayers, ...awayPlayers].find((p) => p.id === selectedPlayer)?.name ||
-      guestPlayers.find((g) => g.id === selectedPlayer)?.name ||
       'Player';
     const statLabel = {
       goal: '⚽ Goal',
@@ -255,6 +320,7 @@ function LiveMatch() {
 
     try {
       setLoading(true);
+      isDeletingRef.current = true; // Prevent "match not found" toast during deletion
       await matchService.deleteMatch(id!);
       toast.success('Match deleted successfully', 'Success!');
       // Use replace to prevent back navigation issues
@@ -262,6 +328,7 @@ function LiveMatch() {
     } catch (error: any) {
       toast.error(handleError(error, 'Delete Match'), 'Error');
       setLoading(false);
+      isDeletingRef.current = false;
     }
   };
 
@@ -356,9 +423,19 @@ function LiveMatch() {
       <Header />
 
       <div className="container mx-auto px-4 py-8 pb-24">
-        <Link to="/dashboard" className="text-green-400 hover:text-green-300 font-medium mb-4 inline-block">
-          ← Back to Dashboard
-        </Link>
+        {match.tournamentId ? (
+          <Link to={`/tournaments/${match.tournamentId}`} className="text-green-400 hover:text-green-300 font-medium mb-4 inline-block">
+            ← Back to Tournament
+          </Link>
+        ) : match.isInternalMatch ? (
+          <Link to={`/teams/${match.homeTeamId}`} className="text-green-400 hover:text-green-300 font-medium mb-4 inline-block">
+            ← Back to Team
+          </Link>
+        ) : (
+          <Link to="/dashboard" className="text-green-400 hover:text-green-300 font-medium mb-4 inline-block">
+            ← Back to Dashboard
+          </Link>
+        )}
 
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-8 mb-6">
           <div className="flex items-center justify-between mb-6">
@@ -548,6 +625,156 @@ function LiveMatch() {
           </div>
         )}
 
+        {/* Team Lineups */}
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-8 mb-6">
+          <h3 className="text-2xl font-black text-white mb-6 text-center">
+            {match.isInternalMatch ? '⚔️ TEAM LINEUPS' : '📋 STARTING LINEUPS'}
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Home Team / Team A Lineup */}
+            <div className="bg-gradient-to-br from-green-500/5 to-emerald-500/5 rounded-2xl border border-green-500/20 p-6">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-green-500/20">
+                {homeTeam?.logoURL && (
+                  <img src={homeTeam.logoURL} alt={homeTeam.name} className="w-10 h-10 object-contain" />
+                )}
+                <div>
+                  <h4 className="text-xl font-black text-green-400">
+                    {match.isInternalMatch ? 'Team A' : homeTeam?.name}
+                  </h4>
+                  {!match.isInternalMatch && homeTeam?.location && (
+                    <p className="text-xs text-slate-400">📍 {homeTeam.location}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {(match.isInternalMatch && match.internalTeamA
+                  ? homePlayers.filter(p => match.internalTeamA?.includes(p.id))
+                  : homePlayers
+                ).map((player, idx) => {
+                  const isGuest = player.id.startsWith('guest_');
+                  const playerCard = (
+                    <div className="flex items-center gap-3 p-3 bg-slate-900/30 rounded-xl border border-white/5">
+                      <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20 flex-shrink-0">
+                        {player.photoURL ? (
+                          <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-lg">👤</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-bold text-sm truncate">
+                            {player.name}
+                          </p>
+                          {isGuest && (
+                            <span className="px-1.5 py-0.5 bg-purple-500/20 border border-purple-500/40 rounded text-purple-400 text-[10px] font-bold">GUEST</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          {player.position} {player.jerseyNumber ? `• #${player.jerseyNumber}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  );
+
+                  return isGuest ? (
+                    <div key={player.id}>{playerCard}</div>
+                  ) : (
+                    <Link
+                      key={player.id}
+                      to={`/users/${player.id}`}
+                      className="hover:bg-slate-900/50 rounded-xl hover:border-green-500/30 transition-all group block"
+                    >
+                      {playerCard}
+                    </Link>
+                  );
+                })}
+
+                {(match.isInternalMatch && match.internalTeamA
+                  ? homePlayers.filter(p => match.internalTeamA?.includes(p.id))
+                  : homePlayers
+                ).length === 0 && (
+                  <p className="text-slate-500 text-sm italic text-center py-4">No players</p>
+                )}
+              </div>
+            </div>
+
+            {/* Away Team / Team B Lineup */}
+            <div className="bg-gradient-to-br from-blue-500/5 to-cyan-500/5 rounded-2xl border border-blue-500/20 p-6">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-blue-500/20">
+                {awayTeam?.logoURL && !match.isInternalMatch && (
+                  <img src={awayTeam.logoURL} alt={awayTeam.name} className="w-10 h-10 object-contain" />
+                )}
+                {match.isInternalMatch && homeTeam?.logoURL && (
+                  <img src={homeTeam.logoURL} alt={homeTeam.name} className="w-10 h-10 object-contain" />
+                )}
+                <div>
+                  <h4 className="text-xl font-black text-blue-400">
+                    {match.isInternalMatch ? 'Team B' : awayTeam?.name}
+                  </h4>
+                  {!match.isInternalMatch && awayTeam?.location && (
+                    <p className="text-xs text-slate-400">📍 {awayTeam.location}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {(match.isInternalMatch && match.internalTeamB
+                  ? homePlayers.filter(p => match.internalTeamB?.includes(p.id))
+                  : awayPlayers
+                ).map((player, idx) => {
+                  const isGuest = player.id.startsWith('guest_');
+                  const playerCard = (
+                    <div className="flex items-center gap-3 p-3 bg-slate-900/30 rounded-xl border border-white/5">
+                      <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20 flex-shrink-0">
+                        {player.photoURL ? (
+                          <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-lg">👤</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-bold text-sm truncate">
+                            {player.name}
+                          </p>
+                          {isGuest && (
+                            <span className="px-1.5 py-0.5 bg-purple-500/20 border border-purple-500/40 rounded text-purple-400 text-[10px] font-bold">GUEST</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          {player.position} {player.jerseyNumber ? `• #${player.jerseyNumber}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  );
+
+                  return isGuest ? (
+                    <div key={player.id}>{playerCard}</div>
+                  ) : (
+                    <Link
+                      key={player.id}
+                      to={`/users/${player.id}`}
+                      className="hover:bg-slate-900/50 rounded-xl hover:border-blue-500/30 transition-all group block"
+                    >
+                      {playerCard}
+                    </Link>
+                  );
+                })}
+
+                {(match.isInternalMatch && match.internalTeamB
+                  ? awayPlayers.filter(p => match.internalTeamB?.includes(p.id))
+                  : awayPlayers
+                ).length === 0 && (
+                  <p className="text-slate-500 text-sm italic text-center py-4">No players</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {match.status === 'ONGOING' && match.createdBy === currentUser?.uid && (
           <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-8 mb-6">
             <h3 className="text-2xl font-black text-white mb-6">⚽ Record Stats</h3>
@@ -643,19 +870,18 @@ function LiveMatch() {
                     {homeTeam?.name} ⚽
                   </h5>
                   {playerStats
-                    .filter(s => s.goals > 0 && (homePlayers.some(p => p.id === s.playerId) || guestPlayers.some(g => g.id === s.playerId && g.team === 'home')))
+                    .filter(s => s.goals > 0 && homePlayers.some(p => p.id === s.playerId))
                     .map((stat) => {
                       const player = homePlayers.find(p => p.id === stat.playerId);
-                      const guest = guestPlayers.find(g => g.id === stat.playerId);
                       const goalEvents = stat.events?.filter(e => e.type === 'goal') || [];
-                      const isGuest = !!guest;
+                      const isGuest = stat.playerId.startsWith('guest_');
 
                       const scorerContent = (
                         <>
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-lg">⚽</span>
                             <p className="text-white font-bold">
-                              {player?.name || guest?.name}
+                              {player?.name}
                               {stat.goals > 1 && <span className="text-green-400 ml-1">×{stat.goals}</span>}
                             </p>
                           </div>
@@ -694,7 +920,7 @@ function LiveMatch() {
                         </Link>
                       );
                     })}
-                  {playerStats.filter(s => s.goals > 0 && (homePlayers.some(p => p.id === s.playerId) || guestPlayers.some(g => g.id === s.playerId && g.team === 'home'))).length === 0 && (
+                  {playerStats.filter(s => s.goals > 0 && homePlayers.some(p => p.id === s.playerId)).length === 0 && (
                     <p className="text-slate-500 text-sm italic text-center py-4">No goals yet</p>
                   )}
                 </div>
@@ -705,18 +931,17 @@ function LiveMatch() {
                     ⚽ {awayTeam?.name}
                   </h5>
                   {playerStats
-                    .filter(s => s.goals > 0 && (awayPlayers.some(p => p.id === s.playerId) || guestPlayers.some(g => g.id === s.playerId && g.team === 'away')))
+                    .filter(s => s.goals > 0 && awayPlayers.some(p => p.id === s.playerId))
                     .map((stat) => {
                       const player = awayPlayers.find(p => p.id === stat.playerId);
-                      const guest = guestPlayers.find(g => g.id === stat.playerId);
                       const goalEvents = stat.events?.filter(e => e.type === 'goal') || [];
-                      const isGuest = !!guest;
+                      const isGuest = stat.playerId.startsWith('guest_');
 
                       const scorerContent = (
                         <>
                           <div className="flex items-center justify-end gap-2 mb-1">
                             <p className="text-white font-bold">
-                              {player?.name || guest?.name}
+                              {player?.name}
                               {stat.goals > 1 && <span className="text-blue-400 ml-1">×{stat.goals}</span>}
                             </p>
                             <span className="text-lg">⚽</span>
@@ -756,7 +981,7 @@ function LiveMatch() {
                         </Link>
                       );
                     })}
-                  {playerStats.filter(s => s.goals > 0 && (awayPlayers.some(p => p.id === s.playerId) || guestPlayers.some(g => g.id === s.playerId && g.team === 'away'))).length === 0 && (
+                  {playerStats.filter(s => s.goals > 0 && awayPlayers.some(p => p.id === s.playerId)).length === 0 && (
                     <p className="text-slate-500 text-sm italic text-center py-4">No goals yet</p>
                   )}
                 </div>
@@ -770,19 +995,18 @@ function LiveMatch() {
                     {/* Home Team Own Goals - Benefits Away Team */}
                     <div className="space-y-3">
                       {playerStats
-                        .filter(s => s.ownGoals && s.ownGoals > 0 && (homePlayers.some(p => p.id === s.playerId) || guestPlayers.some(g => g.id === s.playerId && g.team === 'home')))
+                        .filter(s => s.ownGoals && s.ownGoals > 0 && homePlayers.some(p => p.id === s.playerId))
                         .map((stat) => {
                           const player = homePlayers.find(p => p.id === stat.playerId);
-                          const guest = guestPlayers.find(g => g.id === stat.playerId);
+                          const isGuest = stat.playerId.startsWith('guest_');
                           const ownGoalEvents = stat.events?.filter(e => e.type === 'owngoal') || [];
-                          const isGuest = !!guest;
 
                           const ownGoalContent = (
                             <>
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-lg">⚽🔴</span>
                                 <p className="text-white font-bold">
-                                  {player?.name || guest?.name}
+                                  {player?.name}
                                   {stat.ownGoals && stat.ownGoals > 1 && <span className="text-red-400 ml-1">×{stat.ownGoals}</span>}
                                 </p>
                               </div>
@@ -826,18 +1050,17 @@ function LiveMatch() {
                     {/* Away Team Own Goals - Benefits Home Team */}
                     <div className="space-y-3">
                       {playerStats
-                        .filter(s => s.ownGoals && s.ownGoals > 0 && (awayPlayers.some(p => p.id === s.playerId) || guestPlayers.some(g => g.id === s.playerId && g.team === 'away')))
+                        .filter(s => s.ownGoals && s.ownGoals > 0 && awayPlayers.some(p => p.id === s.playerId))
                         .map((stat) => {
                           const player = awayPlayers.find(p => p.id === stat.playerId);
-                          const guest = guestPlayers.find(g => g.id === stat.playerId);
+                          const isGuest = stat.playerId.startsWith('guest_');
                           const ownGoalEvents = stat.events?.filter(e => e.type === 'owngoal') || [];
-                          const isGuest = !!guest;
 
                           const ownGoalContent = (
                             <>
                               <div className="flex items-center justify-end gap-2 mb-1">
                                 <p className="text-white font-bold">
-                                  {player?.name || guest?.name}
+                                  {player?.name}
                                   {stat.ownGoals && stat.ownGoals > 1 && <span className="text-red-400 ml-1">×{stat.ownGoals}</span>}
                                 </p>
                                 <span className="text-lg">⚽🔴</span>
@@ -894,13 +1117,12 @@ function LiveMatch() {
               {playerStats
                 .flatMap(stat => {
                   const player = [...homePlayers, ...awayPlayers].find(p => p.id === stat.playerId);
-                  const guest = guestPlayers.find(g => g.id === stat.playerId);
-                  const isHome = homePlayers.some(p => p.id === stat.playerId) || (guest && guest.team === 'home');
+                  const isHome = homePlayers.some(p => p.id === stat.playerId);
                   const team = isHome ? homeTeam : awayTeam;
 
                   return (stat.events || []).map(event => ({
                     ...event,
-                    player: player || guest,
+                    player,
                     team,
                     isHome,
                     playerId: stat.playerId,
@@ -918,6 +1140,7 @@ function LiveMatch() {
                     yellow: '🟨',
                     red: '🟥',
                     owngoal: '⚽🔴',
+                    substitution: '🔄',
                   }[event.type];
 
                   const eventLabel = {
@@ -926,6 +1149,7 @@ function LiveMatch() {
                     yellow: 'Yellow Card',
                     red: 'Red Card',
                     owngoal: 'Own Goal',
+                    substitution: 'Substitution',
                   }[event.type];
 
                   const eventTime = event.timestamp instanceof Date
@@ -1072,17 +1296,17 @@ function LiveMatch() {
                 .filter(s => s.yellowCards > 0 || s.redCards > 0)
                 .map((stat) => {
                   const player = [...homePlayers, ...awayPlayers].find((p) => p.id === stat.playerId);
-                  const guest = guestPlayers.find((g) => g.id === stat.playerId);
-                  const isHome = homePlayers.some((p) => p.id === stat.playerId) || (guest && guest.team === 'home');
+                  const isHome = homePlayers.some((p) => p.id === stat.playerId);
                   const team = isHome ? homeTeam : awayTeam;
+                  const isGuest = stat.playerId.startsWith('guest_');
 
                   return (
                     <div key={stat.playerId} className="p-4 bg-slate-900/50 rounded-xl border border-white/10">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-white font-bold">
-                            {player?.name || guest?.name || 'Unknown Player'}
-                            {guest && <span className="text-purple-400 text-sm ml-2">(Guest)</span>}
+                            {player?.name || 'Unknown Player'}
+                            {isGuest && <span className="text-purple-400 text-sm ml-2">(Guest)</span>}
                           </p>
                           <p className="text-slate-400 text-sm">{team?.name}</p>
                         </div>

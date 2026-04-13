@@ -128,45 +128,64 @@ function TeamsDashboard() {
                 <h2 className="text-2xl md:text-3xl font-black text-white mb-4 md:mb-6">🔧 Teams I Manage</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   {managedTeams.map((team) => (
-                    <Link
+                    <div
                       key={team.id}
-                      to={`/teams/${team.id}`}
-                      className="group bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl rounded-3xl border border-green-500/20 p-6 hover:border-green-500/40 transition-all shadow-xl hover:shadow-2xl hover:shadow-green-500/20"
+                      className="group bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl rounded-3xl border border-green-500/20 hover:border-green-500/40 transition-all shadow-xl hover:shadow-2xl hover:shadow-green-500/20"
                     >
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-700/50 rounded-2xl flex items-center justify-center">
-                          {team.logoURL ? (
-                            <img src={team.logoURL} alt={team.name} className="w-full h-full object-contain p-2" />
-                          ) : (
-                            <span className="text-3xl md:text-4xl">⚽</span>
-                          )}
+                      <Link to={`/teams/${team.id}`} className="block p-6">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-700/50 rounded-2xl flex items-center justify-center">
+                            {team.logoURL ? (
+                              <img src={team.logoURL} alt={team.name} className="w-full h-full object-contain p-2" />
+                            ) : (
+                              <span className="text-3xl md:text-4xl">⚽</span>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-xl font-bold text-white group-hover:text-green-400 transition-colors line-clamp-1">
+                              {team.name}
+                            </h3>
+                            {team.teamId && (
+                              <code className="text-xs text-green-400 font-mono">{team.teamId}</code>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <h3 className="text-xl font-bold text-white group-hover:text-green-400 transition-colors line-clamp-1">
-                            {team.name}
-                          </h3>
-                          {team.teamId && (
-                            <code className="text-xs text-green-400 font-mono">{team.teamId}</code>
-                          )}
-                        </div>
-                      </div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2 text-slate-400">
-                          <span>👥</span>
-                          <span>{team.playerIds.length} player{team.playerIds.length !== 1 ? 's' : ''}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-full text-green-400 text-xs font-bold">
-                            Manager
-                          </span>
-                          {team.captainId === currentUser?.uid && (
-                            <span className="px-3 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-yellow-400 text-xs font-bold">
-                              Captain
+                        <div className="space-y-2 text-sm mb-4">
+                          <div className="flex items-center gap-2 text-slate-400">
+                            <span>👥</span>
+                            <span>{team.playerIds.length} player{team.playerIds.length !== 1 ? 's' : ''}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <span className="px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-full text-green-400 text-xs font-bold">
+                              Manager
                             </span>
-                          )}
+                            {team.captainId === currentUser?.uid && (
+                              <span className="px-3 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-yellow-400 text-xs font-bold">
+                                Captain
+                              </span>
+                            )}
+                          </div>
                         </div>
+                      </Link>
+
+                      {/* Quick Actions */}
+                      <div className="px-6 pb-6 pt-2 border-t border-white/10 flex gap-2">
+                        <Link
+                          to={`/teams/${team.id}/manage`}
+                          className="flex-1 px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-white rounded-xl text-xs font-medium transition-all text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          ⚙️ Manage
+                        </Link>
+                        <Link
+                          to={`/teams/${team.id}/internal-match`}
+                          className="flex-1 px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/30 text-orange-400 rounded-xl text-xs font-bold transition-all text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          ⚔️ Internal
+                        </Link>
                       </div>
-                    </Link>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -178,38 +197,50 @@ function TeamsDashboard() {
                 <h2 className="text-2xl md:text-3xl font-black text-white mb-4 md:mb-6">⭐ Teams I Captain</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   {captainTeams.filter(t => t.managerId !== currentUser?.uid).map((team) => (
-                    <Link
+                    <div
                       key={team.id}
-                      to={`/teams/${team.id}`}
-                      className="group bg-gradient-to-br from-yellow-500/10 to-orange-500/10 backdrop-blur-xl rounded-3xl border border-yellow-500/20 p-6 hover:border-yellow-500/40 transition-all shadow-xl hover:shadow-2xl hover:shadow-yellow-500/20"
+                      className="group bg-gradient-to-br from-yellow-500/10 to-orange-500/10 backdrop-blur-xl rounded-3xl border border-yellow-500/20 hover:border-yellow-500/40 transition-all shadow-xl hover:shadow-2xl hover:shadow-yellow-500/20"
                     >
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-700/50 rounded-2xl flex items-center justify-center">
-                          {team.logoURL ? (
-                            <img src={team.logoURL} alt={team.name} className="w-full h-full object-contain p-2" />
-                          ) : (
-                            <span className="text-3xl md:text-4xl">⚽</span>
-                          )}
+                      <Link to={`/teams/${team.id}`} className="block p-6">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-700/50 rounded-2xl flex items-center justify-center">
+                            {team.logoURL ? (
+                              <img src={team.logoURL} alt={team.name} className="w-full h-full object-contain p-2" />
+                            ) : (
+                              <span className="text-3xl md:text-4xl">⚽</span>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-xl font-bold text-white group-hover:text-yellow-400 transition-colors line-clamp-1">
+                              {team.name}
+                            </h3>
+                            {team.teamId && (
+                              <code className="text-xs text-yellow-400 font-mono">{team.teamId}</code>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <h3 className="text-xl font-bold text-white group-hover:text-yellow-400 transition-colors line-clamp-1">
-                            {team.name}
-                          </h3>
-                          {team.teamId && (
-                            <code className="text-xs text-yellow-400 font-mono">{team.teamId}</code>
-                          )}
+                        <div className="space-y-2 text-sm mb-4">
+                          <div className="flex items-center gap-2 text-slate-400">
+                            <span>👥</span>
+                            <span>{team.playerIds.length} player{team.playerIds.length !== 1 ? 's' : ''}</span>
+                          </div>
+                          <span className="inline-block px-3 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-yellow-400 text-xs font-bold">
+                            Captain
+                          </span>
                         </div>
+                      </Link>
+
+                      {/* Quick Actions */}
+                      <div className="px-6 pb-6 pt-2 border-t border-white/10">
+                        <Link
+                          to={`/teams/${team.id}/internal-match`}
+                          className="block px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/30 text-orange-400 rounded-xl text-xs font-bold transition-all text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          ⚔️ Start Internal Match
+                        </Link>
                       </div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2 text-slate-400">
-                          <span>👥</span>
-                          <span>{team.playerIds.length} player{team.playerIds.length !== 1 ? 's' : ''}</span>
-                        </div>
-                        <span className="inline-block px-3 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-yellow-400 text-xs font-bold">
-                          Captain
-                        </span>
-                      </div>
-                    </Link>
+                    </div>
                   ))}
                 </div>
               </div>

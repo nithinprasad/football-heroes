@@ -71,6 +71,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           }
         } else {
           console.log('✅ User profile loaded:', profile);
+
+          // Auto-sync mobile number if missing from profile but available in Firebase Auth
+          if (profile && !profile.mobileNumber && user.phoneNumber) {
+            console.log('📱 Auto-syncing mobile number from Firebase Auth:', user.phoneNumber);
+            try {
+              await authService.updateUserProfile(user.uid, {
+                mobileNumber: user.phoneNumber,
+              });
+              // Reload profile to reflect the update
+              profile = await authService.getUserProfile(user.uid);
+              console.log('✅ Mobile number auto-synced on login');
+            } catch (error) {
+              console.error('❌ Error auto-syncing mobile number:', error);
+            }
+          }
         }
 
         setUserProfile(profile);

@@ -118,26 +118,18 @@ function InternalMatch() {
       setCreating(true);
 
       // Create internal match (no tournament)
-      const matchData = {
+      const matchId = await matchService.createStandaloneMatch({
         homeTeamId: id!, // Use actual team ID
         awayTeamId: id!, // Same team
         venue: venue.trim() || 'Training Ground',
         matchDate: new Date(),
         matchDuration: duration,
+        createdBy: currentUser!.uid,
         isInternalMatch: true, // Mark as internal
         internalTeamA: teamAPlayers.map((a) => a.player.id),
         internalTeamB: teamBPlayers.map((a) => a.player.id),
         matchName: matchName.trim(),
-      };
-
-      const matchId = await matchService.createStandaloneMatch(
-        matchData.homeTeamId,
-        matchData.awayTeamId,
-        matchData.venue,
-        matchData.matchDate,
-        currentUser!.uid,
-        matchData.matchDuration
-      );
+      });
 
       toast.success('Internal match created successfully!', 'Match Started');
       navigate(`/matches/${matchId}/score`);

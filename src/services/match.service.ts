@@ -173,6 +173,10 @@ class MatchService {
     venue: string;
     matchDuration: number;
     createdBy: string;
+    isInternalMatch?: boolean;
+    internalTeamA?: string[];
+    internalTeamB?: string[];
+    matchName?: string;
   }): Promise<string> {
     try {
       const matchRef = doc(this.matchesCollection);
@@ -195,10 +199,25 @@ class MatchService {
         updatedAt: serverTimestamp(),
       };
 
+      // Add internal match fields if provided
+      if (matchData.isInternalMatch) {
+        match.isInternalMatch = true;
+      }
+      if (matchData.internalTeamA && matchData.internalTeamA.length > 0) {
+        match.internalTeamA = matchData.internalTeamA;
+      }
+      if (matchData.internalTeamB && matchData.internalTeamB.length > 0) {
+        match.internalTeamB = matchData.internalTeamB;
+      }
+      if (matchData.matchName) {
+        match.matchName = matchData.matchName;
+      }
+
       console.log('⚽ Creating standalone match:', {
         homeTeamId: matchData.homeTeamId,
         awayTeamId: matchData.awayTeamId,
         venue: matchData.venue,
+        isInternal: matchData.isInternalMatch || false,
       });
 
       await setDoc(matchRef, match);

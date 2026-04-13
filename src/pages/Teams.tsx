@@ -16,7 +16,7 @@ function Teams() {
   }, []);
 
   useEffect(() => {
-    // Filter teams based on search query
+    // Filter teams based on search query and organize by membership
     if (searchQuery.trim() === '') {
       setFilteredTeams(teams);
     } else {
@@ -30,6 +30,14 @@ function Teams() {
       setFilteredTeams(filtered);
     }
   }, [searchQuery, teams]);
+
+  // Separate teams into "my teams" and "other teams"
+  const myTeams = filteredTeams.filter((team) =>
+    currentUser && team.playerIds.includes(currentUser.uid)
+  );
+  const otherTeams = filteredTeams.filter((team) =>
+    !currentUser || !team.playerIds.includes(currentUser.uid)
+  );
 
   const loadTeams = async () => {
     setLoading(true);
@@ -115,7 +123,7 @@ function Teams() {
           </div>
         )}
 
-        {/* Teams Grid */}
+        {/* Teams Sections */}
         {loading ? (
           <div className="text-center py-12 md:py-20">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-500 mx-auto"></div>
@@ -140,59 +148,143 @@ function Teams() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {filteredTeams.map((team) => (
-              <Link
-                key={team.id}
-                to={`/teams/${team.id}`}
-                className="group bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden hover:bg-slate-800/70 hover:border-green-500/30 transition-all shadow-xl hover:shadow-2xl hover:shadow-green-500/10"
-              >
-                {/* Team Header */}
-                <div className="relative h-32 md:h-40 bg-gradient-to-br from-green-500/20 to-blue-500/20 p-4 md:p-6 flex items-center justify-center">
-                  {team.logoURL ? (
-                    <img src={team.logoURL} alt={team.name} className="w-20 h-20 md:w-24 md:h-24 object-contain" />
-                  ) : (
-                    <div className="text-6xl md:text-7xl">⚽</div>
-                  )}
+          <>
+            {/* My Teams Section */}
+            {currentUser && myTeams.length > 0 && (
+              <div className="mb-10">
+                <div className="mb-6">
+                  <h2 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
+                    <span>⭐</span>
+                    <span>My Teams</span>
+                    <span className="text-lg text-slate-400 font-normal">({myTeams.length})</span>
+                  </h2>
+                  <p className="text-slate-400 text-sm md:text-base mt-2">Teams you're a member of</p>
                 </div>
-
-                {/* Team Info */}
-                <div className="p-4 md:p-6">
-                  <h3 className="text-lg md:text-xl font-bold text-white mb-2 group-hover:text-green-400 transition-colors line-clamp-2">
-                    {team.name}
-                  </h3>
-
-                  <div className="space-y-2 text-xs md:text-sm text-slate-400 mb-4">
-                    {team.location && (
-                      <div className="flex items-center gap-2">
-                        <span>📍</span>
-                        <span className="truncate">{team.location}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                  {myTeams.map((team) => (
+                    <Link
+                      key={team.id}
+                      to={`/teams/${team.id}`}
+                      className="group bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden hover:bg-slate-800/70 hover:border-green-500/30 transition-all shadow-xl hover:shadow-2xl hover:shadow-green-500/10"
+                    >
+                      {/* Team Header */}
+                      <div className="relative h-32 md:h-40 bg-gradient-to-br from-green-500/20 to-blue-500/20 p-4 md:p-6 flex items-center justify-center">
+                        {team.logoURL ? (
+                          <img src={team.logoURL} alt={team.name} className="w-20 h-20 md:w-24 md:h-24 object-contain" />
+                        ) : (
+                          <div className="text-6xl md:text-7xl">⚽</div>
+                        )}
                       </div>
-                    )}
-                    {team.teamId && (
-                      <div className="flex items-center gap-2">
-                        <span>🆔</span>
-                        <code className="px-2 py-0.5 bg-slate-700/50 rounded text-green-400 font-mono text-xs">
-                          {team.teamId}
-                        </code>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <span>👥</span>
-                      <span>{team.playerIds.length} Player{team.playerIds.length !== 1 ? 's' : ''}</span>
-                    </div>
-                  </div>
 
-                  {/* View Button */}
-                  <div className="pt-4 border-t border-white/10">
-                    <div className="text-green-400 font-bold text-center group-hover:text-green-300 transition-colors text-sm md:text-base">
-                      View Team →
-                    </div>
-                  </div>
+                      {/* Team Info */}
+                      <div className="p-4 md:p-6">
+                        <h3 className="text-lg md:text-xl font-bold text-white mb-2 group-hover:text-green-400 transition-colors line-clamp-2">
+                          {team.name}
+                        </h3>
+
+                        <div className="space-y-2 text-xs md:text-sm text-slate-400 mb-4">
+                          {team.location && (
+                            <div className="flex items-center gap-2">
+                              <span>📍</span>
+                              <span className="truncate">{team.location}</span>
+                            </div>
+                          )}
+                          {team.teamId && (
+                            <div className="flex items-center gap-2">
+                              <span>🆔</span>
+                              <code className="px-2 py-0.5 bg-slate-700/50 rounded text-green-400 font-mono text-xs">
+                                {team.teamId}
+                              </code>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <span>👥</span>
+                            <span>{team.playerIds.length} Player{team.playerIds.length !== 1 ? 's' : ''}</span>
+                          </div>
+                        </div>
+
+                        {/* View Button */}
+                        <div className="pt-4 border-t border-white/10">
+                          <div className="text-green-400 font-bold text-center group-hover:text-green-300 transition-colors text-sm md:text-base">
+                            View Team →
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
                 </div>
-              </Link>
-            ))}
-          </div>
+              </div>
+            )}
+
+            {/* Other Teams Section */}
+            {otherTeams.length > 0 && (
+              <div>
+                <div className="mb-6">
+                  <h2 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3">
+                    <span>🌐</span>
+                    <span>{currentUser && myTeams.length > 0 ? 'Other Teams' : 'All Teams'}</span>
+                    <span className="text-lg text-slate-400 font-normal">({otherTeams.length})</span>
+                  </h2>
+                  <p className="text-slate-400 text-sm md:text-base mt-2">
+                    {currentUser && myTeams.length > 0 ? 'Discover and join more teams' : 'Browse available teams'}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                  {otherTeams.map((team) => (
+                    <Link
+                      key={team.id}
+                      to={`/teams/${team.id}`}
+                      className="group bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden hover:bg-slate-800/70 hover:border-green-500/30 transition-all shadow-xl hover:shadow-2xl hover:shadow-green-500/10"
+                    >
+                      {/* Team Header */}
+                      <div className="relative h-32 md:h-40 bg-gradient-to-br from-green-500/20 to-blue-500/20 p-4 md:p-6 flex items-center justify-center">
+                        {team.logoURL ? (
+                          <img src={team.logoURL} alt={team.name} className="w-20 h-20 md:w-24 md:h-24 object-contain" />
+                        ) : (
+                          <div className="text-6xl md:text-7xl">⚽</div>
+                        )}
+                      </div>
+
+                      {/* Team Info */}
+                      <div className="p-4 md:p-6">
+                        <h3 className="text-lg md:text-xl font-bold text-white mb-2 group-hover:text-green-400 transition-colors line-clamp-2">
+                          {team.name}
+                        </h3>
+
+                        <div className="space-y-2 text-xs md:text-sm text-slate-400 mb-4">
+                          {team.location && (
+                            <div className="flex items-center gap-2">
+                              <span>📍</span>
+                              <span className="truncate">{team.location}</span>
+                            </div>
+                          )}
+                          {team.teamId && (
+                            <div className="flex items-center gap-2">
+                              <span>🆔</span>
+                              <code className="px-2 py-0.5 bg-slate-700/50 rounded text-green-400 font-mono text-xs">
+                                {team.teamId}
+                              </code>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <span>👥</span>
+                            <span>{team.playerIds.length} Player{team.playerIds.length !== 1 ? 's' : ''}</span>
+                          </div>
+                        </div>
+
+                        {/* View Button */}
+                        <div className="pt-4 border-t border-white/10">
+                          <div className="text-green-400 font-bold text-center group-hover:text-green-300 transition-colors text-sm md:text-base">
+                            View Team →
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

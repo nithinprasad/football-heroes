@@ -31,6 +31,12 @@ function LiveScoring() {
   const [goalScorerId, setGoalScorerId] = useState<string | null>(null);
   const [goalScorerTeam, setGoalScorerTeam] = useState<'home' | 'away' | null>(null);
 
+  // Substitution modal state
+  const [showSubModal, setShowSubModal] = useState(false);
+  const [subTeam, setSubTeam] = useState<'home' | 'away' | null>(null);
+  const [playerOut, setPlayerOut] = useState<string | null>(null);
+  const [playerIn, setPlayerIn] = useState<string | null>(null);
+
   useEffect(() => {
     if (id && currentUser) {
       loadMatchData();
@@ -378,6 +384,75 @@ function LiveScoring() {
     setGoalScorerTeam(null);
   };
 
+  const openSubModal = (team: 'home' | 'away') => {
+    setSubTeam(team);
+    setPlayerOut(null);
+    setPlayerIn(null);
+    setShowSubModal(true);
+  };
+
+  const handleSubstitution = async () => {
+    if (!match || !canManage || !subTeam || !playerOut || !playerIn) return;
+
+    const matchMinute = Math.floor(currentTime / 60);
+
+    try {
+      // Update the lineup
+      const updatedMatch = { ...match };
+
+      if (subTeam === 'home') {
+        updatedMatch.homeStarting = updatedMatch.homeStarting?.filter(id => id !== playerOut) || [];
+        updatedMatch.homeStarting.push(playerIn);
+        updatedMatch.homeSubs = updatedMatch.homeSubs?.filter(id => id !== playerIn) || [];
+        updatedMatch.homeSubs.push(playerOut);
+      } else {
+        updatedMatch.awayStarting = updatedMatch.awayStarting?.filter(id => id !== playerOut) || [];
+        updatedMatch.awayStarting.push(playerIn);
+        updatedMatch.awaySubs = updatedMatch.awaySubs?.filter(id => id !== playerIn) || [];
+        updatedMatch.awaySubs.push(playerOut);
+      }
+
+      // Add substitution event
+      const substitution = {
+        minute: matchMinute,
+        playerOut,
+        playerIn,
+        team: subTeam,
+        timestamp: new Date(),
+      };
+
+      updatedMatch.substitutions = [...(updatedMatch.substitutions || []), substitution];
+
+      // Update in Firestore
+      await matchService.updateMatchPlayerStats(id!, updatedMatch.playerStats || []);
+
+      // Also update the lineup and substitutions
+      const matchRef = await import('firebase/firestore').then(m => m.doc);
+      const db = await import('../services/firebase').then(m => m.db);
+      const docRef = matchRef(db, 'matches', id!);
+      await import('firebase/firestore').then(m => m.updateDoc(docRef, {
+        homeStarting: updatedMatch.homeStarting,
+        homeSubs: updatedMatch.homeSubs,
+        awayStarting: updatedMatch.awayStarting,
+        awaySubs: updatedMatch.awaySubs,
+        substitutions: updatedMatch.substitutions,
+        updatedAt: new Date(),
+      }));
+
+      setMatch(updatedMatch);
+      toast.success('Substitution recorded!', 'Success!');
+
+      // Close modal
+      setShowSubModal(false);
+      setSubTeam(null);
+      setPlayerOut(null);
+      setPlayerIn(null);
+    } catch (error) {
+      console.error('Error recording substitution:', error);
+      toast.error('Failed to record substitution', 'Error');
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -722,14 +797,69 @@ function LiveScoring() {
           </div>
         )}
 
+        {/* Substitutions Section */}
+        {match.substitutions && match.substitutions.length > 0 && (
+          <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-8 mb-8">
+            <h3 className="text-2xl font-black text-white mb-6 text-center">🔄 SUBSTITUTIONS</h3>
+
+            <div className="space-y-4">
+              {match.substitutions.map((sub, idx) => {
+                const playerOutData = [...homePlayers, ...awayPlayers].find(p => p.id === sub.playerOut);
+                const playerInData = [...homePlayers, ...awayPlayers].find(p => p.id === sub.playerIn);
+                const teamName = sub.team === 'home'
+                  ? (match.isInternalMatch ? 'Team A' : homeTeam?.name)
+                  : (match.isInternalMatch ? 'Team B' : awayTeam?.name);
+
+                return (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-xl border ${
+                      sub.team === 'home'
+                        ? 'bg-green-500/5 border-green-500/20'
+                        : 'bg-blue-500/5 border-blue-500/20'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">🔄</span>
+                        <div>
+                          <p className="text-xs text-slate-400 mb-1">{teamName}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-red-400 font-bold">⬇️ {playerOutData?.name || 'Unknown'}</span>
+                            <span className="text-slate-500">→</span>
+                            <span className="text-green-400 font-bold">⬆️ {playerInData?.name || 'Unknown'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-lg font-black text-white">{sub.minute}'</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Player Actions */}
         {match.status !== 'COMPLETED' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Home Team Players */}
             <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl rounded-3xl border border-green-500/20 p-6">
-              <h3 className="text-2xl font-bold text-white mb-6">
-                {match.isInternalMatch ? 'Team A' : homeTeam?.name} Players
-              </h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-white">
+                  {match.isInternalMatch ? 'Team A' : homeTeam?.name} Players
+                </h3>
+                {match.homeSubs && match.homeSubs.length > 0 && (
+                  <button
+                    onClick={() => openSubModal('home')}
+                    className="px-4 py-2 bg-blue-500/20 text-blue-400 rounded-xl font-bold hover:bg-blue-500/30 border border-blue-500/30 text-sm"
+                  >
+                    🔄 Make Substitution
+                  </button>
+                )}
+              </div>
 
               {/* Starting XI */}
               {match.homeStarting && match.homeStarting.length > 0 && (
@@ -948,9 +1078,19 @@ function LiveScoring() {
 
             {/* Away Team Players */}
             <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-xl rounded-3xl border border-blue-500/20 p-6">
-              <h3 className="text-2xl font-bold text-white mb-6">
-                {match.isInternalMatch ? 'Team B' : awayTeam?.name} Players
-              </h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-white">
+                  {match.isInternalMatch ? 'Team B' : awayTeam?.name} Players
+                </h3>
+                {match.awaySubs && match.awaySubs.length > 0 && (
+                  <button
+                    onClick={() => openSubModal('away')}
+                    className="px-4 py-2 bg-green-500/20 text-green-400 rounded-xl font-bold hover:bg-green-500/30 border border-green-500/30 text-sm"
+                  >
+                    🔄 Make Substitution
+                  </button>
+                )}
+              </div>
 
               {/* Starting XI */}
               {match.awayStarting && match.awayStarting.length > 0 && (
@@ -1216,6 +1356,137 @@ function LiveScoring() {
                     setShowAssistModal(false);
                     setGoalScorerId(null);
                     setGoalScorerTeam(null);
+                  }}
+                  className="px-6 py-3 bg-slate-700 text-white rounded-xl font-medium hover:bg-slate-600 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Substitution Modal */}
+        {showSubModal && subTeam && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-3xl border border-white/10 max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6">
+              <h3 className="text-2xl font-black text-white mb-4 text-center">🔄 Make Substitution</h3>
+              <p className="text-slate-400 text-center mb-6">
+                Select a player to take off and a player to bring on
+              </p>
+
+              {/* Player going OFF */}
+              <div className="mb-6">
+                <h4 className="text-lg font-bold text-red-400 mb-3">⬇️ Player Coming OFF (from Starting XI)</h4>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                  {(subTeam === 'home'
+                    ? homePlayers.filter(p => match.homeStarting?.includes(p.id))
+                    : awayPlayers.filter(p => match.awayStarting?.includes(p.id))
+                  ).map((player) => (
+                    <button
+                      key={player.id}
+                      onClick={() => setPlayerOut(player.id)}
+                      className={`w-full p-4 border rounded-xl transition-all text-left ${
+                        playerOut === player.id
+                          ? 'bg-red-500/20 border-red-500/50'
+                          : 'bg-slate-900/50 hover:bg-red-500/10 border-white/10 hover:border-red-500/30'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20">
+                          {player.photoURL ? (
+                            <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span>👤</span>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-white font-bold">{player.name}</p>
+                          <p className="text-xs text-slate-400">
+                            {player.jerseyNumber && `#${player.jerseyNumber} • `}
+                            {match.playerPositions?.[player.id] || player.position}
+                          </p>
+                        </div>
+                        {playerOut === player.id && (
+                          <span className="text-red-400 font-bold">✓</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Player coming ON */}
+              <div className="mb-6">
+                <h4 className="text-lg font-bold text-green-400 mb-3">⬆️ Player Coming ON (from Substitutes)</h4>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                  {(subTeam === 'home'
+                    ? homePlayers.filter(p => match.homeSubs?.includes(p.id))
+                    : awayPlayers.filter(p => match.awaySubs?.includes(p.id))
+                  ).map((player) => (
+                    <button
+                      key={player.id}
+                      onClick={() => setPlayerIn(player.id)}
+                      className={`w-full p-4 border rounded-xl transition-all text-left ${
+                        playerIn === player.id
+                          ? 'bg-green-500/20 border-green-500/50'
+                          : 'bg-slate-900/50 hover:bg-green-500/10 border-white/10 hover:border-green-500/30'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20">
+                          {player.photoURL ? (
+                            <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span>👤</span>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-white font-bold">{player.name}</p>
+                          <p className="text-xs text-slate-400">
+                            {player.jerseyNumber && `#${player.jerseyNumber} • `}
+                            {match.playerPositions?.[player.id] || player.position}
+                          </p>
+                        </div>
+                        {playerIn === player.id && (
+                          <span className="text-green-400 font-bold">✓</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Summary */}
+              {playerOut && playerIn && (
+                <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                  <p className="text-center text-white font-bold">
+                    <span className="text-red-400">{homePlayers.concat(awayPlayers).find(p => p.id === playerOut)?.name}</span>
+                    {' ⬇️ '}
+                    <span className="text-blue-400">→</span>
+                    {' ⬆️ '}
+                    <span className="text-green-400">{homePlayers.concat(awayPlayers).find(p => p.id === playerIn)?.name}</span>
+                  </p>
+                  <p className="text-center text-slate-400 text-sm mt-1">
+                    Minute {Math.floor(currentTime / 60)}'
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSubstitution}
+                  disabled={!playerOut || !playerIn}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Confirm Substitution
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSubModal(false);
+                    setSubTeam(null);
+                    setPlayerOut(null);
+                    setPlayerIn(null);
                   }}
                   className="px-6 py-3 bg-slate-700 text-white rounded-xl font-medium hover:bg-slate-600 transition-all"
                 >

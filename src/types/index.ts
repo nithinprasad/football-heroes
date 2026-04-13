@@ -114,10 +114,12 @@ export interface PlayerMatchStats {
 }
 
 export interface MatchEvent {
-  type: 'goal' | 'assist' | 'yellow' | 'red' | 'owngoal';
+  type: 'goal' | 'assist' | 'yellow' | 'red' | 'owngoal' | 'substitution';
   timestamp: Date; // When the event occurred
   minute?: number; // Match minute when event occurred
   assistedBy?: string; // Player ID who assisted (for goal events)
+  playerIn?: string; // Player ID coming in (for substitutions)
+  playerOut?: string; // Player ID going out (for substitutions)
 }
 
 export interface Match {
@@ -156,6 +158,14 @@ export interface Match {
   awayNotPlaying?: string[]; // Away team / Team B not playing
   // Position overrides for this match (playerId -> Position)
   playerPositions?: { [playerId: string]: Position };
+  // Substitution events (chronological order)
+  substitutions?: Array<{
+    minute: number;
+    playerOut: string;
+    playerIn: string;
+    team: 'home' | 'away';
+    timestamp: Date;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -110,6 +110,7 @@ export interface PlayerMatchStats {
   ownGoals?: number; // Own goals scored
   cleanSheet?: boolean; // for goalkeepers
   events?: MatchEvent[]; // Timeline of events for this player
+  position?: Position; // Position override for this match
 }
 
 export interface MatchEvent {
@@ -153,6 +154,8 @@ export interface Match {
   awayStarting?: string[]; // Away team / Team B starting lineup
   awaySubs?: string[]; // Away team / Team B substitutes
   awayNotPlaying?: string[]; // Away team / Team B not playing
+  // Position overrides for this match (playerId -> Position)
+  playerPositions?: { [playerId: string]: Position };
   createdAt: Date;
   updatedAt: Date;
 }

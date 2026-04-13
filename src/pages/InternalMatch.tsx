@@ -5,13 +5,14 @@ import { useToast } from '../contexts/ToastContext';
 import teamService from '../services/team.service';
 import userService from '../services/user.service';
 import matchService from '../services/match.service';
-import { Team, User } from '../types';
+import { Team, User, Position } from '../types';
 import Header from '../components/Header';
 
 interface PlayerAssignment {
   player: User;
   team: 'A' | 'B';
   status: 'starting' | 'sub' | 'notPlaying';
+  position?: Position; // Position override for this match
 }
 
 function InternalMatch() {
@@ -97,6 +98,16 @@ function InternalMatch() {
     );
   };
 
+  const handleUpdatePosition = (playerId: string, newPosition: Position) => {
+    setAssignments((prev) =>
+      prev.map((assignment) =>
+        assignment.player.id === playerId
+          ? { ...assignment, position: newPosition }
+          : assignment
+      )
+    );
+  };
+
   const handleStartMatch = async () => {
     const teamAStarting = assignments.filter((a) => a.team === 'A' && a.status === 'starting');
     const teamBStarting = assignments.filter((a) => a.team === 'B' && a.status === 'starting');
@@ -131,6 +142,14 @@ function InternalMatch() {
     try {
       setCreating(true);
 
+      // Build position overrides map
+      const playerPositions: { [playerId: string]: Position } = {};
+      assignments.forEach((assignment) => {
+        if (assignment.position) {
+          playerPositions[assignment.player.id] = assignment.position;
+        }
+      });
+
       // Create internal match (no tournament)
       const matchId = await matchService.createStandaloneMatch({
         homeTeamId: id!, // Use actual team ID
@@ -151,6 +170,8 @@ function InternalMatch() {
         awayStarting: teamBStarting.map((a) => a.player.id),
         awaySubs: teamBSubs.map((a) => a.player.id),
         awayNotPlaying: teamBNotPlaying.map((a) => a.player.id),
+        // Position overrides
+        playerPositions: Object.keys(playerPositions).length > 0 ? playerPositions : undefined,
       });
 
       toast.success('Internal match created successfully!', 'Match Started');
@@ -267,21 +288,35 @@ function InternalMatch() {
             <div className="mb-4">
               <h4 className="text-sm font-bold text-blue-300 mb-2">Starting XI ({teamAStarting.length}/{teamSize})</h4>
               <div className="space-y-2 min-h-[100px]">
-                {teamAStarting.map(({ player }) => (
-                  <div key={player.id} className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-bold text-sm truncate">{player.name}</p>
-                        <p className="text-slate-400 text-xs">{player.position}</p>
-                      </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
-                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
-                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'starting')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Team B">→B</button>
+                {teamAStarting.map((assignment) => {
+                  const { player } = assignment;
+                  const currentPosition = assignment.position || player.position;
+                  return (
+                    <div key={player.id} className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                          <select
+                            value={currentPosition || 'Forward'}
+                            onChange={(e) => handleUpdatePosition(player.id, e.target.value as Position)}
+                            className="text-xs bg-slate-800 text-slate-300 border border-white/10 rounded px-1 py-0.5 mt-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="Goalkeeper">🧤 GK</option>
+                            <option value="Defender">🛡️ DEF</option>
+                            <option value="Midfielder">⚡ MID</option>
+                            <option value="Forward">⚽ FWD</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => handleAssignPlayer(player.id, 'A', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
+                          <button onClick={() => handleAssignPlayer(player.id, 'A', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
+                          <button onClick={() => handleAssignPlayer(player.id, 'B', 'starting')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Team B">→B</button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {teamAStarting.length === 0 && <p className="text-slate-500 text-sm italic text-center py-4">No starters</p>}
               </div>
             </div>
@@ -290,21 +325,35 @@ function InternalMatch() {
             <div className="mb-4">
               <h4 className="text-sm font-bold text-blue-300 mb-2">Substitutes ({teamASubs.length})</h4>
               <div className="space-y-2 min-h-[60px]">
-                {teamASubs.map(({ player }) => (
-                  <div key={player.id} className="p-2 bg-slate-800/50 rounded-lg border border-white/10">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-bold text-sm truncate">{player.name}</p>
-                        <p className="text-slate-400 text-xs">{player.position}</p>
-                      </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'starting')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Starting">⭐</button>
-                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
-                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'sub')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Team B">→B</button>
+                {teamASubs.map((assignment) => {
+                  const { player } = assignment;
+                  const currentPosition = assignment.position || player.position;
+                  return (
+                    <div key={player.id} className="p-2 bg-slate-800/50 rounded-lg border border-white/10">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                          <select
+                            value={currentPosition || 'Forward'}
+                            onChange={(e) => handleUpdatePosition(player.id, e.target.value as Position)}
+                            className="text-xs bg-slate-800 text-slate-300 border border-white/10 rounded px-1 py-0.5 mt-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="Goalkeeper">🧤 GK</option>
+                            <option value="Defender">🛡️ DEF</option>
+                            <option value="Midfielder">⚡ MID</option>
+                            <option value="Forward">⚽ FWD</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => handleAssignPlayer(player.id, 'A', 'starting')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Starting">⭐</button>
+                          <button onClick={() => handleAssignPlayer(player.id, 'A', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
+                          <button onClick={() => handleAssignPlayer(player.id, 'B', 'sub')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Team B">→B</button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {teamASubs.length === 0 && <p className="text-slate-500 text-sm italic text-center py-2">No substitutes</p>}
               </div>
             </div>
@@ -313,14 +362,27 @@ function InternalMatch() {
             <div>
               <h4 className="text-sm font-bold text-slate-400 mb-2">Not Playing ({teamANotPlaying.length})</h4>
               <div className="space-y-2 min-h-[60px]">
-                {teamANotPlaying.map(({ player }) => (
-                  <div key={player.id} className="p-2 bg-slate-900/30 rounded-lg border border-white/5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-slate-400 font-bold text-sm truncate">{player.name}</p>
-                        <p className="text-slate-500 text-xs">{player.position}</p>
-                      </div>
-                      <div className="flex gap-1">
+                {teamANotPlaying.map((assignment) => {
+                  const { player } = assignment;
+                  const currentPosition = assignment.position || player.position;
+                  return (
+                    <div key={player.id} className="p-2 bg-slate-900/30 rounded-lg border border-white/5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-slate-400 font-bold text-sm truncate">{player.name}</p>
+                          <select
+                            value={currentPosition || 'Forward'}
+                            onChange={(e) => handleUpdatePosition(player.id, e.target.value as Position)}
+                            className="text-xs bg-slate-900 text-slate-500 border border-white/10 rounded px-1 py-0.5 mt-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="Goalkeeper">🧤 GK</option>
+                            <option value="Defender">🛡️ DEF</option>
+                            <option value="Midfielder">⚡ MID</option>
+                            <option value="Forward">⚽ FWD</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-1">
                         <button onClick={() => handleAssignPlayer(player.id, 'A', 'starting')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Starting">⭐</button>
                         <button onClick={() => handleAssignPlayer(player.id, 'A', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
                         <button onClick={() => handleAssignPlayer(player.id, 'B', 'notPlaying')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Team B">→B</button>
@@ -346,21 +408,35 @@ function InternalMatch() {
             <div className="mb-4">
               <h4 className="text-sm font-bold text-green-300 mb-2">Starting XI ({teamBStarting.length}/{teamSize})</h4>
               <div className="space-y-2 min-h-[100px]">
-                {teamBStarting.map(({ player }) => (
-                  <div key={player.id} className="p-2 bg-green-500/10 rounded-lg border border-green-500/20">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-bold text-sm truncate">{player.name}</p>
-                        <p className="text-slate-400 text-xs">{player.position}</p>
-                      </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'starting')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Team A">A←</button>
-                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
-                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
+                {teamBStarting.map((assignment) => {
+                  const { player } = assignment;
+                  const currentPosition = assignment.position || player.position;
+                  return (
+                    <div key={player.id} className="p-2 bg-green-500/10 rounded-lg border border-green-500/20">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                          <select
+                            value={currentPosition || 'Forward'}
+                            onChange={(e) => handleUpdatePosition(player.id, e.target.value as Position)}
+                            className="text-xs bg-slate-800 text-slate-300 border border-white/10 rounded px-1 py-0.5 mt-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="Goalkeeper">🧤 GK</option>
+                            <option value="Defender">🛡️ DEF</option>
+                            <option value="Midfielder">⚡ MID</option>
+                            <option value="Forward">⚽ FWD</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => handleAssignPlayer(player.id, 'A', 'starting')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Team A">A←</button>
+                          <button onClick={() => handleAssignPlayer(player.id, 'B', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
+                          <button onClick={() => handleAssignPlayer(player.id, 'B', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {teamBStarting.length === 0 && <p className="text-slate-500 text-sm italic text-center py-4">No starters</p>}
               </div>
             </div>
@@ -369,21 +445,35 @@ function InternalMatch() {
             <div className="mb-4">
               <h4 className="text-sm font-bold text-green-300 mb-2">Substitutes ({teamBSubs.length})</h4>
               <div className="space-y-2 min-h-[60px]">
-                {teamBSubs.map(({ player }) => (
-                  <div key={player.id} className="p-2 bg-slate-800/50 rounded-lg border border-white/10">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-bold text-sm truncate">{player.name}</p>
-                        <p className="text-slate-400 text-xs">{player.position}</p>
-                      </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'sub')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Team A">A←</button>
-                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'starting')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Starting">⭐</button>
-                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
+                {teamBSubs.map((assignment) => {
+                  const { player } = assignment;
+                  const currentPosition = assignment.position || player.position;
+                  return (
+                    <div key={player.id} className="p-2 bg-slate-800/50 rounded-lg border border-white/10">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                          <select
+                            value={currentPosition || 'Forward'}
+                            onChange={(e) => handleUpdatePosition(player.id, e.target.value as Position)}
+                            className="text-xs bg-slate-800 text-slate-300 border border-white/10 rounded px-1 py-0.5 mt-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="Goalkeeper">🧤 GK</option>
+                            <option value="Defender">🛡️ DEF</option>
+                            <option value="Midfielder">⚡ MID</option>
+                            <option value="Forward">⚽ FWD</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => handleAssignPlayer(player.id, 'A', 'sub')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Team A">A←</button>
+                          <button onClick={() => handleAssignPlayer(player.id, 'B', 'starting')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Starting">⭐</button>
+                          <button onClick={() => handleAssignPlayer(player.id, 'B', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {teamBSubs.length === 0 && <p className="text-slate-500 text-sm italic text-center py-2">No substitutes</p>}
               </div>
             </div>
@@ -392,21 +482,35 @@ function InternalMatch() {
             <div>
               <h4 className="text-sm font-bold text-slate-400 mb-2">Not Playing ({teamBNotPlaying.length})</h4>
               <div className="space-y-2 min-h-[60px]">
-                {teamBNotPlaying.map(({ player }) => (
-                  <div key={player.id} className="p-2 bg-slate-900/30 rounded-lg border border-white/5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-slate-400 font-bold text-sm truncate">{player.name}</p>
-                        <p className="text-slate-500 text-xs">{player.position}</p>
-                      </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'notPlaying')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Team A">A←</button>
-                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'starting')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Starting">⭐</button>
-                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
+                {teamBNotPlaying.map((assignment) => {
+                  const { player } = assignment;
+                  const currentPosition = assignment.position || player.position;
+                  return (
+                    <div key={player.id} className="p-2 bg-slate-900/30 rounded-lg border border-white/5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-slate-400 font-bold text-sm truncate">{player.name}</p>
+                          <select
+                            value={currentPosition || 'Forward'}
+                            onChange={(e) => handleUpdatePosition(player.id, e.target.value as Position)}
+                            className="text-xs bg-slate-900 text-slate-500 border border-white/10 rounded px-1 py-0.5 mt-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="Goalkeeper">🧤 GK</option>
+                            <option value="Defender">🛡️ DEF</option>
+                            <option value="Midfielder">⚡ MID</option>
+                            <option value="Forward">⚽ FWD</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => handleAssignPlayer(player.id, 'A', 'notPlaying')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Team A">A←</button>
+                          <button onClick={() => handleAssignPlayer(player.id, 'B', 'starting')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Starting">⭐</button>
+                          <button onClick={() => handleAssignPlayer(player.id, 'B', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {teamBNotPlaying.length === 0 && <p className="text-slate-500 text-sm italic text-center py-2">All players assigned</p>}
               </div>
             </div>

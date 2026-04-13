@@ -177,6 +177,8 @@ class MatchService {
     internalTeamA?: string[];
     internalTeamB?: string[];
     matchName?: string;
+    playerPositions?: { [playerId: string]: any };
+    [key: string]: any; // Allow additional fields
   }): Promise<string> {
     try {
       const matchRef = doc(this.matchesCollection);
@@ -213,6 +215,17 @@ class MatchService {
         match.matchName = matchData.matchName;
       }
 
+      // Add any additional fields (lineup data, position overrides, etc.)
+      const additionalFields = [
+        'teamSize', 'homeStarting', 'homeSubs', 'homeNotPlaying',
+        'awayStarting', 'awaySubs', 'awayNotPlaying', 'playerPositions'
+      ];
+      additionalFields.forEach(field => {
+        if (matchData[field] !== undefined) {
+          match[field] = matchData[field];
+        }
+      });
+
       console.log('⚽ Creating standalone match:', {
         homeTeamId: matchData.homeTeamId,
         awayTeamId: matchData.awayTeamId,
@@ -245,8 +258,57 @@ class MatchService {
       const matchRef = doc(db, 'matches', matchId);
       const match = await this.getMatchById(matchId);
 
+      // Auto-assign clean sheets to goalkeepers when completing match with 0 goals conceded
+      let statsWithCleanSheets = [...result.playerStats];
+      if (completeMatch && match) {
+        console.log('🧤 Checking for clean sheets...');
+
+        // Get all players to check their positions
+        const allPlayerIds = result.playerStats.map(s => s.playerId).filter(id => !id.startsWith('guest_'));
+        const players = await Promise.all(allPlayerIds.map(id => userService.getUserById(id)));
+
+        // Determine which players are in which team
+        const homePlayerIds = match.isInternalMatch ? (match.internalTeamA || []) : [];
+        const awayPlayerIds = match.isInternalMatch ? (match.internalTeamB || []) : [];
+
+        // For regular matches, we need to get the team rosters
+        if (!match.isInternalMatch) {
+          const teamService = await import('./team.service');
+          const homeTeam = await teamService.default.getTeamById(match.homeTeamId);
+          const awayTeam = await teamService.default.getTeamById(match.awayTeamId);
+
+          if (homeTeam) homePlayerIds.push(...homeTeam.playerIds);
+          if (awayTeam) awayPlayerIds.push(...awayTeam.playerIds);
+        }
+
+        statsWithCleanSheets = result.playerStats.map((stat) => {
+          const player = players.find(p => p && p.id === stat.playerId);
+          if (!player) return stat;
+
+          // Check position (from match override or stat override or player's default position)
+          const position = match.playerPositions?.[stat.playerId] || stat.position || player.position;
+          const isGoalkeeper = position === 'Goalkeeper';
+
+          if (isGoalkeeper) {
+            const isHomeTeam = homePlayerIds.includes(stat.playerId);
+            const isAwayTeam = awayPlayerIds.includes(stat.playerId);
+
+            if (isHomeTeam || isAwayTeam) {
+              const goalsConceded = isHomeTeam ? result.awayScore : result.homeScore;
+
+              if (goalsConceded === 0) {
+                console.log(`✅ Clean sheet for goalkeeper ${player.name} (${position})`);
+                return { ...stat, cleanSheet: true };
+              }
+            }
+          }
+
+          return stat;
+        });
+      }
+
       // Clean player stats to remove undefined fields
-      const cleanedStats = result.playerStats.map((stat) => {
+      const cleanedStats = statsWithCleanSheets.map((stat) => {
         const cleaned: any = {
           playerId: stat.playerId,
           goals: stat.goals,
@@ -258,6 +320,11 @@ class MatchService {
         // Only include cleanSheet if it has a value
         if (stat.cleanSheet !== undefined) {
           cleaned.cleanSheet = stat.cleanSheet;
+        }
+
+        // Include position override if it exists
+        if (stat.position !== undefined) {
+          cleaned.position = stat.position;
         }
 
         // Include events if they exist

@@ -248,10 +248,39 @@ export interface TopGoalkeeper {
   goalsConceded: number;
 }
 
+// Support Message Types
+export type MessageStatus = 'OPEN' | 'REPLIED' | 'CLOSED';
+
+export interface SupportMessage {
+  id: string;
+  userId: string;
+  userName: string; // Denormalized for display
+  userPhone: string; // Denormalized for display
+  title: string;
+  message: string;
+  status: MessageStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  replies?: MessageReply[];
+}
+
+export interface MessageReply {
+  id: string;
+  adminId: string;
+  adminName: string; // Denormalized for display
+  message: string;
+  createdAt: Date;
+}
+
 // Form Input Types
 export interface SignupFormData {
   name: string;
   mobileNumber: string;
+}
+
+export interface SupportMessageFormData {
+  title: string;
+  message: string;
 }
 
 export interface ProfileFormData {

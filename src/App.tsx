@@ -20,6 +20,8 @@ import Profile from './pages/Profile';
 import AdminTournaments from './pages/AdminTournaments';
 import JoinTeam from './pages/JoinTeam';
 import InternalMatch from './pages/InternalMatch';
+import Contact from './pages/Contact';
+import AdminMessages from './pages/AdminMessages';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { currentUser, loading } = useAuth();
@@ -120,6 +122,14 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
+      <Route
+        path="/contact"
+        element={
+          <PrivateRoute>
+            <Contact />
+          </PrivateRoute>
+        }
+      />
 
       {/* Admin Routes */}
       <Route
@@ -127,6 +137,14 @@ function AppRoutes() {
         element={
           <AdminRoute>
             <AdminTournaments />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/messages"
+        element={
+          <AdminRoute>
+            <AdminMessages />
           </AdminRoute>
         }
       />

@@ -44,6 +44,14 @@ const Header = () => {
             >
               Teams
             </Link>
+            {currentUser && (
+              <Link
+                to="/contact"
+                className="text-white/90 hover:text-white transition-colors font-medium"
+              >
+                Contact
+              </Link>
+            )}
 
             {/* User Section */}
             {currentUser ? (
@@ -126,6 +134,13 @@ const Header = () => {
                         >
                           ⚙️ Profile Settings
                         </Link>
+                        <Link
+                          to="/contact"
+                          onClick={() => setShowDropdown(false)}
+                          className="block px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                          📧 Contact Support
+                        </Link>
 
                         {userProfile?.roles?.includes('admin') && (
                           <>
@@ -136,6 +151,13 @@ const Header = () => {
                               className="block px-4 py-2 text-purple-400 hover:bg-white/10 hover:text-purple-300 transition-colors font-medium"
                             >
                               👑 Admin Panel
+                            </Link>
+                            <Link
+                              to="/admin/messages"
+                              onClick={() => setShowDropdown(false)}
+                              className="block px-4 py-2 text-purple-400 hover:bg-white/10 hover:text-purple-300 transition-colors font-medium"
+                            >
+                              📬 Admin Messages
                             </Link>
                           </>
                         )}
@@ -223,6 +245,35 @@ const Header = () => {
                   >
                     ⚙️ Profile
                   </Link>
+                  <Link
+                    to="/contact"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+                  >
+                    📧 Contact
+                  </Link>
+
+                  {userProfile?.roles?.includes('admin') && (
+                    <>
+                      <div className="border-t border-white/10 my-2" />
+                      <Link
+                        to="/admin/tournaments"
+                        onClick={() => setShowMobileMenu(false)}
+                        className="px-4 py-2 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300 rounded-lg transition-colors font-medium"
+                      >
+                        👑 Admin Panel
+                      </Link>
+                      <Link
+                        to="/admin/messages"
+                        onClick={() => setShowMobileMenu(false)}
+                        className="px-4 py-2 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300 rounded-lg transition-colors font-medium"
+                      >
+                        📬 Admin Messages
+                      </Link>
+                    </>
+                  )}
+
+                  <div className="border-t border-white/10 my-2" />
                   <button
                     onClick={() => {
                       handleSignOut();

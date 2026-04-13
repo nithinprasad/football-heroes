@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -16,6 +16,7 @@ function LiveMatch() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const isDeletingRef = useRef(false);
 
   const [match, setMatch] = useState<Match | null>(null);
   const [homeTeam, setHomeTeam] = useState<Team | null>(null);
@@ -79,8 +80,11 @@ function LiveMatch() {
             setLoading(false);
           }
         } else {
-          toast.error('Match not found', 'Error');
-          navigate('/dashboard');
+          // Only show error if we're not actively deleting the match
+          if (!isDeletingRef.current) {
+            toast.error('Match not found', 'Error');
+            navigate('/dashboard');
+          }
         }
       },
       (error) => {
@@ -255,6 +259,7 @@ function LiveMatch() {
 
     try {
       setLoading(true);
+      isDeletingRef.current = true; // Prevent "match not found" toast during deletion
       await matchService.deleteMatch(id!);
       toast.success('Match deleted successfully', 'Success!');
       // Use replace to prevent back navigation issues
@@ -262,6 +267,7 @@ function LiveMatch() {
     } catch (error: any) {
       toast.error(handleError(error, 'Delete Match'), 'Error');
       setLoading(false);
+      isDeletingRef.current = false;
     }
   };
 

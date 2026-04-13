@@ -102,12 +102,20 @@ function LiveScoring() {
       setAwayTeam(away);
 
       if (home) {
-        const players = await Promise.all(home.playerIds.map((pid) => userService.getUserById(pid)));
+        // For internal matches, use internalTeamA, otherwise use home team playerIds
+        const playerIds = matchData.isInternalMatch && matchData.internalTeamA
+          ? matchData.internalTeamA
+          : home.playerIds;
+        const players = await Promise.all(playerIds.map((pid) => userService.getUserById(pid)));
         setHomePlayers(players.filter((p) => p !== null) as User[]);
       }
 
       if (away) {
-        const players = await Promise.all(away.playerIds.map((pid) => userService.getUserById(pid)));
+        // For internal matches, use internalTeamB, otherwise use away team playerIds
+        const playerIds = matchData.isInternalMatch && matchData.internalTeamB
+          ? matchData.internalTeamB
+          : away.playerIds;
+        const players = await Promise.all(playerIds.map((pid) => userService.getUserById(pid)));
         setAwayPlayers(players.filter((p) => p !== null) as User[]);
       }
     } catch (error) {
@@ -719,138 +727,444 @@ function LiveScoring() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Home Team Players */}
             <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl rounded-3xl border border-green-500/20 p-6">
-              <h3 className="text-2xl font-bold text-white mb-6">{homeTeam?.name} Players</h3>
-              <div className="space-y-3">
-                {homePlayers.map((player) => {
-                  const stats = match.playerStats?.find((ps) => ps.playerId === player.id);
-                  return (
-                    <div key={player.id} className="bg-black/30 rounded-2xl p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20">
-                            {player.photoURL ? (
-                              <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <span>👤</span>
-                            )}
-                          </div>
-                          <div>
-                            <Link to={`/users/${player.id}`} className="font-bold text-white hover:text-green-400 transition-colors">
-                              {player.name}
-                            </Link>
-                            <div className="text-xs text-slate-400">
-                              #{player.jerseyNumber} • {player.position}
+              <h3 className="text-2xl font-bold text-white mb-6">
+                {match.isInternalMatch ? 'Team A' : homeTeam?.name} Players
+              </h3>
+
+              {/* Starting XI */}
+              {match.homeStarting && match.homeStarting.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-bold text-green-400 mb-3">
+                    ⭐ Starting XI ({match.homeStarting.length}/{match.teamSize || 11})
+                  </h4>
+                  <div className="space-y-3">
+                    {homePlayers.filter(p => match.homeStarting?.includes(p.id)).map((player) => {
+                      const stats = match.playerStats?.find((ps) => ps.playerId === player.id);
+                      const position = match.playerPositions?.[player.id] || stats?.position || player.position;
+                      return (
+                        <div key={player.id} className="bg-green-500/5 border border-green-500/20 rounded-2xl p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20">
+                                {player.photoURL ? (
+                                  <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span>👤</span>
+                                )}
+                              </div>
+                              <div>
+                                <Link to={`/users/${player.id}`} className="font-bold text-white hover:text-green-400 transition-colors">
+                                  {player.name}
+                                </Link>
+                                <div className="text-xs text-slate-400">
+                                  {player.jerseyNumber && `#${player.jerseyNumber} • `}{position}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-sm text-slate-400">
+                              ⚽ {stats?.goals || 0} 🎯 {stats?.assists || 0} 🟨 {stats?.yellowCards || 0} 🟥 {stats?.redCards || 0} ⚽🔴 {stats?.ownGoals || 0}
                             </div>
                           </div>
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'goal')}
+                              className="flex-1 min-w-[80px] px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-bold hover:bg-green-500/30 border border-green-500/30 text-sm"
+                            >
+                              ⚽ Goal
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'owngoal')}
+                              className="flex-1 min-w-[80px] px-3 py-2 bg-orange-500/20 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 border border-orange-500/30 text-sm"
+                            >
+                              ⚽🔴 OG
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'assist')}
+                              className="flex-1 min-w-[80px] px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 border border-blue-500/30 text-sm"
+                            >
+                              🎯 Assist
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'yellowCard')}
+                              className="px-3 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg font-bold hover:bg-yellow-500/30 border border-yellow-500/30 text-sm"
+                            >
+                              🟨
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'redCard')}
+                              className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-bold hover:bg-red-500/30 border border-red-500/30 text-sm"
+                            >
+                              🟥
+                            </button>
+                          </div>
                         </div>
-                        <div className="text-sm text-slate-400">
-                          ⚽ {stats?.goals || 0} 🎯 {stats?.assists || 0} 🟨 {stats?.yellowCards || 0} 🟥 {stats?.redCards || 0} ⚽🔴 {stats?.ownGoals || 0}
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Substitutes */}
+              {match.homeSubs && match.homeSubs.length > 0 && (
+                <div>
+                  <h4 className="text-lg font-bold text-slate-400 mb-3">
+                    🔄 Substitutes ({match.homeSubs.length})
+                  </h4>
+                  <div className="space-y-3">
+                    {homePlayers.filter(p => match.homeSubs?.includes(p.id)).map((player) => {
+                      const stats = match.playerStats?.find((ps) => ps.playerId === player.id);
+                      const position = match.playerPositions?.[player.id] || stats?.position || player.position;
+                      return (
+                        <div key={player.id} className="bg-black/30 rounded-2xl p-4 opacity-80">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20">
+                                {player.photoURL ? (
+                                  <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span>👤</span>
+                                )}
+                              </div>
+                              <div>
+                                <Link to={`/users/${player.id}`} className="font-bold text-white hover:text-green-400 transition-colors">
+                                  {player.name}
+                                </Link>
+                                <div className="text-xs text-slate-400">
+                                  {player.jerseyNumber && `#${player.jerseyNumber} • `}{position}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-sm text-slate-400">
+                              ⚽ {stats?.goals || 0} 🎯 {stats?.assists || 0} 🟨 {stats?.yellowCards || 0} 🟥 {stats?.redCards || 0} ⚽🔴 {stats?.ownGoals || 0}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'goal')}
+                              className="flex-1 min-w-[80px] px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-bold hover:bg-green-500/30 border border-green-500/30 text-sm"
+                            >
+                              ⚽ Goal
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'owngoal')}
+                              className="flex-1 min-w-[80px] px-3 py-2 bg-orange-500/20 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 border border-orange-500/30 text-sm"
+                            >
+                              ⚽🔴 OG
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'assist')}
+                              className="flex-1 min-w-[80px] px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 border border-blue-500/30 text-sm"
+                            >
+                              🎯 Assist
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'yellowCard')}
+                              className="px-3 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg font-bold hover:bg-yellow-500/30 border border-yellow-500/30 text-sm"
+                            >
+                              🟨
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'redCard')}
+                              className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-bold hover:bg-red-500/30 border border-red-500/30 text-sm"
+                            >
+                              🟥
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Fallback: Show all players if no lineup data */}
+              {(!match.homeStarting || match.homeStarting.length === 0) && (
+                <div className="space-y-3">
+                  {homePlayers.map((player) => {
+                    const stats = match.playerStats?.find((ps) => ps.playerId === player.id);
+                    const position = match.playerPositions?.[player.id] || stats?.position || player.position;
+                    return (
+                      <div key={player.id} className="bg-black/30 rounded-2xl p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20">
+                              {player.photoURL ? (
+                                <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span>👤</span>
+                              )}
+                            </div>
+                            <div>
+                              <Link to={`/users/${player.id}`} className="font-bold text-white hover:text-green-400 transition-colors">
+                                {player.name}
+                              </Link>
+                              <div className="text-xs text-slate-400">
+                                {player.jerseyNumber && `#${player.jerseyNumber} • `}{position}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-sm text-slate-400">
+                            ⚽ {stats?.goals || 0} 🎯 {stats?.assists || 0} 🟨 {stats?.yellowCards || 0} 🟥 {stats?.redCards || 0} ⚽🔴 {stats?.ownGoals || 0}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          <button
+                            onClick={() => addPlayerEvent(player.id, 'goal')}
+                            className="flex-1 min-w-[80px] px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-bold hover:bg-green-500/30 border border-green-500/30 text-sm"
+                          >
+                            ⚽ Goal
+                          </button>
+                          <button
+                            onClick={() => addPlayerEvent(player.id, 'owngoal')}
+                            className="flex-1 min-w-[80px] px-3 py-2 bg-orange-500/20 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 border border-orange-500/30 text-sm"
+                          >
+                            ⚽🔴 OG
+                          </button>
+                          <button
+                            onClick={() => addPlayerEvent(player.id, 'assist')}
+                            className="flex-1 min-w-[80px] px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 border border-blue-500/30 text-sm"
+                          >
+                            🎯 Assist
+                          </button>
+                          <button
+                            onClick={() => addPlayerEvent(player.id, 'yellowCard')}
+                            className="px-3 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg font-bold hover:bg-yellow-500/30 border border-yellow-500/30 text-sm"
+                          >
+                            🟨
+                          </button>
+                          <button
+                            onClick={() => addPlayerEvent(player.id, 'redCard')}
+                            className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-bold hover:bg-red-500/30 border border-red-500/30 text-sm"
+                          >
+                            🟥
+                          </button>
                         </div>
                       </div>
-                      <div className="flex gap-2 flex-wrap">
-                        <button
-                          onClick={() => addPlayerEvent(player.id, 'goal')}
-                          className="flex-1 min-w-[80px] px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-bold hover:bg-green-500/30 border border-green-500/30 text-sm"
-                        >
-                          ⚽ Goal
-                        </button>
-                        <button
-                          onClick={() => addPlayerEvent(player.id, 'owngoal')}
-                          className="flex-1 min-w-[80px] px-3 py-2 bg-orange-500/20 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 border border-orange-500/30 text-sm"
-                        >
-                          ⚽🔴 OG
-                        </button>
-                        <button
-                          onClick={() => addPlayerEvent(player.id, 'assist')}
-                          className="flex-1 min-w-[80px] px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 border border-blue-500/30 text-sm"
-                        >
-                          🎯 Assist
-                        </button>
-                        <button
-                          onClick={() => addPlayerEvent(player.id, 'yellowCard')}
-                          className="px-3 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg font-bold hover:bg-yellow-500/30 border border-yellow-500/30 text-sm"
-                        >
-                          🟨
-                        </button>
-                        <button
-                          onClick={() => addPlayerEvent(player.id, 'redCard')}
-                          className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-bold hover:bg-red-500/30 border border-red-500/30 text-sm"
-                        >
-                          🟥
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Away Team Players */}
             <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-xl rounded-3xl border border-blue-500/20 p-6">
-              <h3 className="text-2xl font-bold text-white mb-6">{awayTeam?.name} Players</h3>
-              <div className="space-y-3">
-                {awayPlayers.map((player) => {
-                  const stats = match.playerStats?.find((ps) => ps.playerId === player.id);
-                  return (
-                    <div key={player.id} className="bg-black/30 rounded-2xl p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20">
-                            {player.photoURL ? (
-                              <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <span>👤</span>
-                            )}
-                          </div>
-                          <div>
-                            <Link to={`/users/${player.id}`} className="font-bold text-white hover:text-green-400 transition-colors">
-                              {player.name}
-                            </Link>
-                            <div className="text-xs text-slate-400">
-                              #{player.jerseyNumber} • {player.position}
+              <h3 className="text-2xl font-bold text-white mb-6">
+                {match.isInternalMatch ? 'Team B' : awayTeam?.name} Players
+              </h3>
+
+              {/* Starting XI */}
+              {match.awayStarting && match.awayStarting.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-bold text-blue-400 mb-3">
+                    ⭐ Starting XI ({match.awayStarting.length}/{match.teamSize || 11})
+                  </h4>
+                  <div className="space-y-3">
+                    {awayPlayers.filter(p => match.awayStarting?.includes(p.id)).map((player) => {
+                      const stats = match.playerStats?.find((ps) => ps.playerId === player.id);
+                      const position = match.playerPositions?.[player.id] || stats?.position || player.position;
+                      return (
+                        <div key={player.id} className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20">
+                                {player.photoURL ? (
+                                  <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span>👤</span>
+                                )}
+                              </div>
+                              <div>
+                                <Link to={`/users/${player.id}`} className="font-bold text-white hover:text-green-400 transition-colors">
+                                  {player.name}
+                                </Link>
+                                <div className="text-xs text-slate-400">
+                                  {player.jerseyNumber && `#${player.jerseyNumber} • `}{position}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-sm text-slate-400">
+                              ⚽ {stats?.goals || 0} 🎯 {stats?.assists || 0} 🟨 {stats?.yellowCards || 0} 🟥 {stats?.redCards || 0} ⚽🔴 {stats?.ownGoals || 0}
                             </div>
                           </div>
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'goal')}
+                              className="flex-1 min-w-[80px] px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-bold hover:bg-green-500/30 border border-green-500/30 text-sm"
+                            >
+                              ⚽ Goal
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'owngoal')}
+                              className="flex-1 min-w-[80px] px-3 py-2 bg-orange-500/20 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 border border-orange-500/30 text-sm"
+                            >
+                              ⚽🔴 OG
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'assist')}
+                              className="flex-1 min-w-[80px] px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 border border-blue-500/30 text-sm"
+                            >
+                              🎯 Assist
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'yellowCard')}
+                              className="px-3 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg font-bold hover:bg-yellow-500/30 border border-yellow-500/30 text-sm"
+                            >
+                              🟨
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'redCard')}
+                              className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-bold hover:bg-red-500/30 border border-red-500/30 text-sm"
+                            >
+                              🟥
+                            </button>
+                          </div>
                         </div>
-                        <div className="text-sm text-slate-400">
-                          ⚽ {stats?.goals || 0} 🎯 {stats?.assists || 0} 🟨 {stats?.yellowCards || 0} 🟥 {stats?.redCards || 0} ⚽🔴 {stats?.ownGoals || 0}
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Substitutes */}
+              {match.awaySubs && match.awaySubs.length > 0 && (
+                <div>
+                  <h4 className="text-lg font-bold text-slate-400 mb-3">
+                    🔄 Substitutes ({match.awaySubs.length})
+                  </h4>
+                  <div className="space-y-3">
+                    {awayPlayers.filter(p => match.awaySubs?.includes(p.id)).map((player) => {
+                      const stats = match.playerStats?.find((ps) => ps.playerId === player.id);
+                      const position = match.playerPositions?.[player.id] || stats?.position || player.position;
+                      return (
+                        <div key={player.id} className="bg-black/30 rounded-2xl p-4 opacity-80">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20">
+                                {player.photoURL ? (
+                                  <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span>👤</span>
+                                )}
+                              </div>
+                              <div>
+                                <Link to={`/users/${player.id}`} className="font-bold text-white hover:text-green-400 transition-colors">
+                                  {player.name}
+                                </Link>
+                                <div className="text-xs text-slate-400">
+                                  {player.jerseyNumber && `#${player.jerseyNumber} • `}{position}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-sm text-slate-400">
+                              ⚽ {stats?.goals || 0} 🎯 {stats?.assists || 0} 🟨 {stats?.yellowCards || 0} 🟥 {stats?.redCards || 0} ⚽🔴 {stats?.ownGoals || 0}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'goal')}
+                              className="flex-1 min-w-[80px] px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-bold hover:bg-green-500/30 border border-green-500/30 text-sm"
+                            >
+                              ⚽ Goal
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'owngoal')}
+                              className="flex-1 min-w-[80px] px-3 py-2 bg-orange-500/20 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 border border-orange-500/30 text-sm"
+                            >
+                              ⚽🔴 OG
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'assist')}
+                              className="flex-1 min-w-[80px] px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 border border-blue-500/30 text-sm"
+                            >
+                              🎯 Assist
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'yellowCard')}
+                              className="px-3 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg font-bold hover:bg-yellow-500/30 border border-yellow-500/30 text-sm"
+                            >
+                              🟨
+                            </button>
+                            <button
+                              onClick={() => addPlayerEvent(player.id, 'redCard')}
+                              className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-bold hover:bg-red-500/30 border border-red-500/30 text-sm"
+                            >
+                              🟥
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Fallback: Show all players if no lineup data */}
+              {(!match.awayStarting || match.awayStarting.length === 0) && (
+                <div className="space-y-3">
+                  {awayPlayers.map((player) => {
+                    const stats = match.playerStats?.find((ps) => ps.playerId === player.id);
+                    const position = match.playerPositions?.[player.id] || stats?.position || player.position;
+                    return (
+                      <div key={player.id} className="bg-black/30 rounded-2xl p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20">
+                              {player.photoURL ? (
+                                <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span>👤</span>
+                              )}
+                            </div>
+                            <div>
+                              <Link to={`/users/${player.id}`} className="font-bold text-white hover:text-green-400 transition-colors">
+                                {player.name}
+                              </Link>
+                              <div className="text-xs text-slate-400">
+                                {player.jerseyNumber && `#${player.jerseyNumber} • `}{position}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-sm text-slate-400">
+                            ⚽ {stats?.goals || 0} 🎯 {stats?.assists || 0} 🟨 {stats?.yellowCards || 0} 🟥 {stats?.redCards || 0} ⚽🔴 {stats?.ownGoals || 0}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          <button
+                            onClick={() => addPlayerEvent(player.id, 'goal')}
+                            className="flex-1 min-w-[80px] px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-bold hover:bg-green-500/30 border border-green-500/30 text-sm"
+                          >
+                            ⚽ Goal
+                          </button>
+                          <button
+                            onClick={() => addPlayerEvent(player.id, 'owngoal')}
+                            className="flex-1 min-w-[80px] px-3 py-2 bg-orange-500/20 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 border border-orange-500/30 text-sm"
+                          >
+                            ⚽🔴 OG
+                          </button>
+                          <button
+                            onClick={() => addPlayerEvent(player.id, 'assist')}
+                            className="flex-1 min-w-[80px] px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 border border-blue-500/30 text-sm"
+                          >
+                            🎯 Assist
+                          </button>
+                          <button
+                            onClick={() => addPlayerEvent(player.id, 'yellowCard')}
+                            className="px-3 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg font-bold hover:bg-yellow-500/30 border border-yellow-500/30 text-sm"
+                          >
+                            🟨
+                          </button>
+                          <button
+                            onClick={() => addPlayerEvent(player.id, 'redCard')}
+                            className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-bold hover:bg-red-500/30 border border-red-500/30 text-sm"
+                          >
+                            🟥
+                          </button>
                         </div>
                       </div>
-                      <div className="flex gap-2 flex-wrap">
-                        <button
-                          onClick={() => addPlayerEvent(player.id, 'goal')}
-                          className="flex-1 min-w-[80px] px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-bold hover:bg-green-500/30 border border-green-500/30 text-sm"
-                        >
-                          ⚽ Goal
-                        </button>
-                        <button
-                          onClick={() => addPlayerEvent(player.id, 'owngoal')}
-                          className="flex-1 min-w-[80px] px-3 py-2 bg-orange-500/20 text-orange-400 rounded-lg font-bold hover:bg-orange-500/30 border border-orange-500/30 text-sm"
-                        >
-                          ⚽🔴 OG
-                        </button>
-                        <button
-                          onClick={() => addPlayerEvent(player.id, 'assist')}
-                          className="flex-1 min-w-[80px] px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 border border-blue-500/30 text-sm"
-                        >
-                          🎯 Assist
-                        </button>
-                        <button
-                          onClick={() => addPlayerEvent(player.id, 'yellowCard')}
-                          className="px-3 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg font-bold hover:bg-yellow-500/30 border border-yellow-500/30 text-sm"
-                        >
-                          🟨
-                        </button>
-                        <button
-                          onClick={() => addPlayerEvent(player.id, 'redCard')}
-                          className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-bold hover:bg-red-500/30 border border-red-500/30 text-sm"
-                        >
-                          🟥
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}

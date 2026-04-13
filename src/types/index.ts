@@ -116,6 +116,7 @@ export interface MatchEvent {
   type: 'goal' | 'assist' | 'yellow' | 'red' | 'owngoal';
   timestamp: Date; // When the event occurred
   minute?: number; // Match minute when event occurred
+  assistedBy?: string; // Player ID who assisted (for goal events)
 }
 
 export interface Match {

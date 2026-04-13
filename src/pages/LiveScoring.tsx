@@ -26,6 +26,11 @@ function LiveScoring() {
   const [canManage, setCanManage] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Assist selection modal state
+  const [showAssistModal, setShowAssistModal] = useState(false);
+  const [goalScorerId, setGoalScorerId] = useState<string | null>(null);
+  const [goalScorerTeam, setGoalScorerTeam] = useState<'home' | 'away' | null>(null);
+
   useEffect(() => {
     if (id && currentUser) {
       loadMatchData();
@@ -184,6 +189,23 @@ function LiveScoring() {
   const addPlayerEvent = async (playerId: string, eventType: 'goal' | 'assist' | 'yellowCard' | 'redCard' | 'owngoal') => {
     if (!match || !canManage) return;
 
+    // For goals, show assist selection modal
+    if (eventType === 'goal') {
+      const isHomePlayer = homePlayers.some(p => p.id === playerId);
+      const isAwayPlayer = awayPlayers.some(p => p.id === playerId);
+      setGoalScorerId(playerId);
+      setGoalScorerTeam(isHomePlayer ? 'home' : isAwayPlayer ? 'away' : null);
+      setShowAssistModal(true);
+      return;
+    }
+
+    // For other events, proceed normally
+    await recordPlayerEvent(playerId, eventType);
+  };
+
+  const recordPlayerEvent = async (playerId: string, eventType: 'goal' | 'assist' | 'yellowCard' | 'redCard' | 'owngoal', assistedBy?: string) => {
+    if (!match || !canManage) return;
+
     const playerStats = match.playerStats || [];
     const existingStatIndex = playerStats.findIndex((ps) => ps.playerId === playerId);
 
@@ -191,28 +213,66 @@ function LiveScoring() {
     const isHomePlayer = homePlayers.some(p => p.id === playerId);
     const isAwayPlayer = awayPlayers.some(p => p.id === playerId);
 
+    // Calculate match minute
+    const matchMinute = Math.floor(currentTime / 60);
+
     let updatedStats: PlayerMatchStats[];
     let newScore = { ...match.score };
 
     if (existingStatIndex >= 0) {
       updatedStats = [...playerStats];
       const stat = { ...updatedStats[existingStatIndex] };
+
+      // Initialize events array if it doesn't exist
+      if (!stat.events) stat.events = [];
+
       if (eventType === 'goal') {
         stat.goals += 1;
+        // Add goal event with timing and optional assist
+        const goalEvent: any = {
+          type: 'goal',
+          timestamp: new Date(),
+          minute: matchMinute,
+        };
+        if (assistedBy) {
+          goalEvent.assistedBy = assistedBy;
+        }
+        stat.events.push(goalEvent);
+
         // Update score
         if (isHomePlayer) newScore.home += 1;
         else if (isAwayPlayer) newScore.away += 1;
       } else if (eventType === 'owngoal') {
         stat.ownGoals = (stat.ownGoals || 0) + 1;
+        stat.events.push({
+          type: 'owngoal',
+          timestamp: new Date(),
+          minute: matchMinute,
+        });
         // Own goal - increase opponent's score
         if (isHomePlayer) newScore.away += 1;
         else if (isAwayPlayer) newScore.home += 1;
       } else if (eventType === 'assist') {
         stat.assists += 1;
+        stat.events.push({
+          type: 'assist',
+          timestamp: new Date(),
+          minute: matchMinute,
+        });
       } else if (eventType === 'yellowCard') {
         stat.yellowCards += 1;
+        stat.events.push({
+          type: 'yellow',
+          timestamp: new Date(),
+          minute: matchMinute,
+        });
       } else if (eventType === 'redCard') {
         stat.redCards += 1;
+        stat.events.push({
+          type: 'red',
+          timestamp: new Date(),
+          minute: matchMinute,
+        });
       }
       updatedStats[existingStatIndex] = stat;
     } else {
@@ -223,15 +283,50 @@ function LiveScoring() {
         yellowCards: eventType === 'yellowCard' ? 1 : 0,
         redCards: eventType === 'redCard' ? 1 : 0,
         ownGoals: eventType === 'owngoal' ? 1 : 0,
+        events: [],
       };
 
-      // Update score for new stat
+      // Add event with timing
       if (eventType === 'goal') {
+        const goalEvent: any = {
+          type: 'goal',
+          timestamp: new Date(),
+          minute: matchMinute,
+        };
+        if (assistedBy) {
+          goalEvent.assistedBy = assistedBy;
+        }
+        newStat.events!.push(goalEvent);
+
+        // Update score
         if (isHomePlayer) newScore.home += 1;
         else if (isAwayPlayer) newScore.away += 1;
       } else if (eventType === 'owngoal') {
+        newStat.events!.push({
+          type: 'owngoal',
+          timestamp: new Date(),
+          minute: matchMinute,
+        });
         if (isHomePlayer) newScore.away += 1;
         else if (isAwayPlayer) newScore.home += 1;
+      } else if (eventType === 'assist') {
+        newStat.events!.push({
+          type: 'assist',
+          timestamp: new Date(),
+          minute: matchMinute,
+        });
+      } else if (eventType === 'yellowCard') {
+        newStat.events!.push({
+          type: 'yellow',
+          timestamp: new Date(),
+          minute: matchMinute,
+        });
+      } else if (eventType === 'redCard') {
+        newStat.events!.push({
+          type: 'red',
+          timestamp: new Date(),
+          minute: matchMinute,
+        });
       }
 
       updatedStats = [...playerStats, newStat];
@@ -256,6 +351,23 @@ function LiveScoring() {
       console.error('Error adding player event:', error);
       toast.error('Failed to record event', 'Error');
     }
+  };
+
+  const handleAssistSelection = async (assistPlayerId: string | null) => {
+    if (!goalScorerId) return;
+
+    // Record the goal with optional assist
+    await recordPlayerEvent(goalScorerId, 'goal', assistPlayerId || undefined);
+
+    // If an assist was selected, also record it for the assisting player
+    if (assistPlayerId && goalScorerId !== assistPlayerId) {
+      await recordPlayerEvent(assistPlayerId, 'assist');
+    }
+
+    // Close modal
+    setShowAssistModal(false);
+    setGoalScorerId(null);
+    setGoalScorerTeam(null);
   };
 
   const formatTime = (seconds: number) => {
@@ -407,6 +519,8 @@ function LiveScoring() {
                   .filter(s => s.goals > 0 && homePlayers.some(p => p.id === s.playerId))
                   .map((stat) => {
                     const player = homePlayers.find(p => p.id === stat.playerId);
+                    const goalEvents = stat.events?.filter(e => e.type === 'goal') || [];
+
                     return (
                       <Link
                         key={stat.playerId}
@@ -420,6 +534,23 @@ function LiveScoring() {
                             {stat.goals > 1 && <span className="text-green-400 ml-1">×{stat.goals}</span>}
                           </p>
                         </div>
+                        {goalEvents.length > 0 && (
+                          <div className="text-green-400 text-xs ml-7 space-y-1">
+                            {goalEvents.map((event, idx) => {
+                              const assistPlayer = event.assistedBy
+                                ? [...homePlayers, ...awayPlayers].find(p => p.id === event.assistedBy)
+                                : null;
+                              return (
+                                <div key={idx}>
+                                  {event.minute !== undefined && <span className="font-bold">{event.minute}'</span>}
+                                  {assistPlayer && (
+                                    <span className="text-blue-400 ml-1">(Assist: {assistPlayer.name})</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </Link>
                     );
                   })}
@@ -437,6 +568,8 @@ function LiveScoring() {
                   .filter(s => s.goals > 0 && awayPlayers.some(p => p.id === s.playerId))
                   .map((stat) => {
                     const player = awayPlayers.find(p => p.id === stat.playerId);
+                    const goalEvents = stat.events?.filter(e => e.type === 'goal') || [];
+
                     return (
                       <Link
                         key={stat.playerId}
@@ -450,6 +583,23 @@ function LiveScoring() {
                           </p>
                           <span className="text-lg">⚽</span>
                         </div>
+                        {goalEvents.length > 0 && (
+                          <div className="text-blue-400 text-xs mr-7 text-right space-y-1">
+                            {goalEvents.map((event, idx) => {
+                              const assistPlayer = event.assistedBy
+                                ? [...homePlayers, ...awayPlayers].find(p => p.id === event.assistedBy)
+                                : null;
+                              return (
+                                <div key={idx}>
+                                  {event.minute !== undefined && <span className="font-bold">{event.minute}'</span>}
+                                  {assistPlayer && (
+                                    <span className="text-green-400 ml-1">(Assist: {assistPlayer.name})</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </Link>
                     );
                   })}
@@ -700,6 +850,63 @@ function LiveScoring() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Assist Selection Modal */}
+        {showAssistModal && goalScorerId && goalScorerTeam && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-3xl border border-white/10 max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6">
+              <h3 className="text-2xl font-black text-white mb-4 text-center">Who Assisted?</h3>
+              <p className="text-slate-400 text-center mb-6">
+                Select the player who provided the assist, or skip if unassisted
+              </p>
+
+              <div className="space-y-2 mb-6">
+                {(goalScorerTeam === 'home' ? homePlayers : awayPlayers)
+                  .filter(p => p.id !== goalScorerId) // Exclude the goal scorer
+                  .map((player) => (
+                    <button
+                      key={player.id}
+                      onClick={() => handleAssistSelection(player.id)}
+                      className="w-full p-4 bg-slate-900/50 hover:bg-blue-500/20 border border-white/10 hover:border-blue-500/30 rounded-xl transition-all text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20">
+                          {player.photoURL ? (
+                            <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span>👤</span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-white font-bold">{player.name}</p>
+                          <p className="text-xs text-slate-400">#{player.jerseyNumber} • {player.position}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleAssistSelection(null)}
+                  className="flex-1 px-6 py-3 bg-green-500/20 text-green-400 rounded-xl font-bold hover:bg-green-500/30 border border-green-500/30 transition-all"
+                >
+                  No Assist
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAssistModal(false);
+                    setGoalScorerId(null);
+                    setGoalScorerTeam(null);
+                  }}
+                  className="px-6 py-3 bg-slate-700 text-white rounded-xl font-medium hover:bg-slate-600 transition-all"
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           </div>

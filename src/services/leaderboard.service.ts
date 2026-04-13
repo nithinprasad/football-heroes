@@ -26,7 +26,7 @@ class LeaderboardService {
             playerId: doc.id,
             playerName: user.name,
             photoURL: user.photoURL,
-            teamId: user.teamIds[0] || '',
+            teamId: user.teamIds?.[0] || '',
             teamName: '', // Will be populated if needed
             goals: user.statistics.goals,
             matches: user.statistics.matches,
@@ -63,7 +63,7 @@ class LeaderboardService {
             playerId: doc.id,
             playerName: user.name,
             photoURL: user.photoURL,
-            teamId: user.teamIds[0] || '',
+            teamId: user.teamIds?.[0] || '',
             teamName: '', // Will be populated if needed
             assists: user.statistics.assists,
             matches: user.statistics.matches,
@@ -101,7 +101,7 @@ class LeaderboardService {
             playerId: doc.id,
             playerName: user.name,
             photoURL: user.photoURL,
-            teamId: user.teamIds[0] || '',
+            teamId: user.teamIds?.[0] || '',
             teamName: '', // Will be populated if needed
             cleanSheets: user.statistics.cleanSheets,
             matches: user.statistics.matches,

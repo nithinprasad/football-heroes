@@ -264,7 +264,7 @@ function AdminTournaments() {
                     <div className="space-y-1 text-sm text-gray-600">
                       <p>📍 {tournament.location}</p>
                       <p>🏆 {tournament.format.replace('_', ' + ')}</p>
-                      <p>👥 {tournament.teamIds.length} teams ({tournament.teamSize}-a-side)</p>
+                      <p>👥 {tournament.teamIds?.length || 0} teams ({tournament.teamSize}-a-side)</p>
                       <p>
                         Status:{' '}
                         <span className="font-medium text-green-600">{tournament.status}</span>
@@ -279,7 +279,7 @@ function AdminTournaments() {
                     >
                       View
                     </Link>
-                    {tournament.status === 'UPCOMING' && tournament.teamIds.length >= 2 && (
+                    {tournament.status === 'UPCOMING' && (tournament.teamIds?.length || 0) >= 2 && (
                       <button
                         onClick={() => handleGenerateFixtures(tournament.id)}
                         className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"

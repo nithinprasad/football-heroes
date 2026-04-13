@@ -107,21 +107,75 @@ function LiveScoring() {
       setHomeTeam(home);
       setAwayTeam(away);
 
+      // Load guest players from match data
+      const guestPlayerMap = new Map<string, User>();
+      if (matchData.guestPlayers) {
+        matchData.guestPlayers.forEach((guest) => {
+          guestPlayerMap.set(guest.id, guest);
+        });
+      }
+
       if (home) {
-        // For internal matches, use internalTeamA, otherwise use home team playerIds
-        const playerIds = matchData.isInternalMatch && matchData.internalTeamA
-          ? matchData.internalTeamA
-          : home.playerIds;
-        const players = await Promise.all(playerIds.map((pid) => userService.getUserById(pid)));
+        // Determine player IDs based on match type and lineup data
+        let playerIds: string[];
+
+        if (matchData.isInternalMatch && matchData.internalTeamA) {
+          // Internal match: use internalTeamA
+          playerIds = matchData.internalTeamA;
+        } else if (matchData.homeStarting || matchData.homeSubs || matchData.homeNotPlaying) {
+          // Friendly match with lineup: combine all lineup arrays
+          playerIds = [
+            ...(matchData.homeStarting || []),
+            ...(matchData.homeSubs || []),
+            ...(matchData.homeNotPlaying || []),
+          ];
+        } else {
+          // Fallback to team roster
+          playerIds = home.playerIds;
+        }
+
+        const players = await Promise.all(
+          playerIds.map(async (pid) => {
+            // Check if it's a guest player
+            if (pid.startsWith('guest_')) {
+              return guestPlayerMap.get(pid) || null;
+            }
+            // Otherwise load from database
+            return userService.getUserById(pid);
+          })
+        );
         setHomePlayers(players.filter((p) => p !== null) as User[]);
       }
 
       if (away) {
-        // For internal matches, use internalTeamB, otherwise use away team playerIds
-        const playerIds = matchData.isInternalMatch && matchData.internalTeamB
-          ? matchData.internalTeamB
-          : away.playerIds;
-        const players = await Promise.all(playerIds.map((pid) => userService.getUserById(pid)));
+        // Determine player IDs based on match type and lineup data
+        let playerIds: string[];
+
+        if (matchData.isInternalMatch && matchData.internalTeamB) {
+          // Internal match: use internalTeamB
+          playerIds = matchData.internalTeamB;
+        } else if (matchData.awayStarting || matchData.awaySubs || matchData.awayNotPlaying) {
+          // Friendly match with lineup: combine all lineup arrays
+          playerIds = [
+            ...(matchData.awayStarting || []),
+            ...(matchData.awaySubs || []),
+            ...(matchData.awayNotPlaying || []),
+          ];
+        } else {
+          // Fallback to team roster
+          playerIds = away.playerIds;
+        }
+
+        const players = await Promise.all(
+          playerIds.map(async (pid) => {
+            // Check if it's a guest player
+            if (pid.startsWith('guest_')) {
+              return guestPlayerMap.get(pid) || null;
+            }
+            // Otherwise load from database
+            return userService.getUserById(pid);
+          })
+        );
         setAwayPlayers(players.filter((p) => p !== null) as User[]);
       }
     } catch (error) {
@@ -471,14 +525,26 @@ function LiveScoring() {
   }
 
   if (!match || !canManage) {
+    // Determine back link based on match type
+    const backLink = match?.tournamentId
+      ? `/tournaments/${match.tournamentId}`
+      : match?.isInternalMatch
+      ? `/teams/${match.homeTeamId}`
+      : `/matches/${id}`;
+    const backText = match?.tournamentId
+      ? '← Back to Tournament'
+      : match?.isInternalMatch
+      ? '← Back to Team'
+      : '← Back to Match';
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4 opacity-30">🚫</div>
           <p className="text-white text-xl mb-2">Access Denied</p>
           <p className="text-slate-400 mb-6">You don't have permission to score this match</p>
-          <Link to="/tournaments" className="text-green-400 hover:text-green-300 font-medium">
-            ← Back to Tournaments
+          <Link to={backLink} className="text-green-400 hover:text-green-300 font-medium">
+            {backText}
           </Link>
         </div>
       </div>
@@ -493,9 +559,19 @@ function LiveScoring() {
       {/* Navigation */}
       <nav className="bg-black/30 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Link to={`/tournaments/${match.tournamentId}`} className="text-green-400 hover:text-green-300 font-medium">
-            ← Back to Tournament
-          </Link>
+          {match.tournamentId ? (
+            <Link to={`/tournaments/${match.tournamentId}`} className="text-green-400 hover:text-green-300 font-medium">
+              ← Back to Tournament
+            </Link>
+          ) : match.isInternalMatch ? (
+            <Link to={`/teams/${match.homeTeamId}`} className="text-green-400 hover:text-green-300 font-medium">
+              ← Back to Team
+            </Link>
+          ) : (
+            <Link to={`/matches/${id}`} className="text-green-400 hover:text-green-300 font-medium">
+              ← Back to Match
+            </Link>
+          )}
           {match.status === 'COMPLETED' && (
             <span className="px-4 py-2 bg-slate-500/20 text-slate-400 rounded-full text-sm font-bold border border-slate-500/30">
               Match Completed

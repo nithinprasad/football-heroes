@@ -166,6 +166,8 @@ export interface Match {
     team: 'home' | 'away';
     timestamp: Date;
   }>;
+  // Guest players (players not in team rosters)
+  guestPlayers?: User[];
   createdAt: Date;
   updatedAt: Date;
 }

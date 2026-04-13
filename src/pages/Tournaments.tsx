@@ -198,7 +198,7 @@ function Tournaments() {
                   {/* Stats */}
                   <div className="mt-4 pt-4 border-t border-white/10 flex justify-between text-xs md:text-sm">
                     <div className="text-center">
-                      <div className="text-lg md:text-xl font-bold text-green-400">{tournament.teamIds.length}</div>
+                      <div className="text-lg md:text-xl font-bold text-green-400">{tournament.teamIds?.length || 0}</div>
                       <div className="text-slate-500">Teams</div>
                     </div>
                     <div className="text-center">

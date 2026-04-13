@@ -178,6 +178,7 @@ class MatchService {
     internalTeamB?: string[];
     matchName?: string;
     playerPositions?: { [playerId: string]: any };
+    guestPlayers?: any[];
     [key: string]: any; // Allow additional fields
   }): Promise<string> {
     try {
@@ -215,10 +216,10 @@ class MatchService {
         match.matchName = matchData.matchName;
       }
 
-      // Add any additional fields (lineup data, position overrides, etc.)
+      // Add any additional fields (lineup data, position overrides, guest players, etc.)
       const additionalFields = [
         'teamSize', 'homeStarting', 'homeSubs', 'homeNotPlaying',
-        'awayStarting', 'awaySubs', 'awayNotPlaying', 'playerPositions'
+        'awayStarting', 'awaySubs', 'awayNotPlaying', 'playerPositions', 'guestPlayers'
       ];
       additionalFields.forEach(field => {
         if (matchData[field] !== undefined) {

@@ -45,12 +45,20 @@ const Header = () => {
               Teams
             </Link>
             {currentUser && (
-              <Link
-                to="/contact"
-                className="text-white/90 hover:text-white transition-colors font-medium"
-              >
-                Contact
-              </Link>
+              <>
+                <Link
+                  to="/create-match"
+                  className="text-white/90 hover:text-white transition-colors font-medium"
+                >
+                  Create Match
+                </Link>
+                <Link
+                  to="/contact"
+                  className="text-white/90 hover:text-white transition-colors font-medium"
+                >
+                  Contact
+                </Link>
+              </>
             )}
 
             {/* User Section */}
@@ -126,6 +134,13 @@ const Header = () => {
                           className="block px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white transition-colors"
                         >
                           👥 My Teams
+                        </Link>
+                        <Link
+                          to="/create-match"
+                          onClick={() => setShowDropdown(false)}
+                          className="block px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                          ⚽ Create Match
                         </Link>
                         <Link
                           to="/profile"
@@ -237,6 +252,13 @@ const Header = () => {
                     className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
                   >
                     👥 My Teams
+                  </Link>
+                  <Link
+                    to="/create-match"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+                  >
+                    ⚽ Create Match
                   </Link>
                   <Link
                     to="/profile"

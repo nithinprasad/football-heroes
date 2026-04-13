@@ -20,6 +20,7 @@ import Profile from './pages/Profile';
 import AdminTournaments from './pages/AdminTournaments';
 import JoinTeam from './pages/JoinTeam';
 import InternalMatch from './pages/InternalMatch';
+import FriendlyMatchSetup from './pages/FriendlyMatchSetup';
 import Contact from './pages/Contact';
 import AdminMessages from './pages/AdminMessages';
 
@@ -93,6 +94,7 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
+      <Route path="/match/friendly-setup" element={<PrivateRoute><FriendlyMatchSetup /></PrivateRoute>} />
 
       {/* Auth Routes */}
       <Route path="/login" element={currentUser ? <Navigate to="/dashboard" /> : <Login />} />

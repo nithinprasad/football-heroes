@@ -218,9 +218,12 @@ class TournamentService {
         throw new Error('Tournament not found');
       }
 
-      if (!tournament.teamIds.includes(teamId)) {
+      // Ensure teamIds exists and is an array
+      const currentTeamIds = Array.isArray(tournament.teamIds) ? tournament.teamIds : [];
+
+      if (!currentTeamIds.includes(teamId)) {
         await this.updateTournament(tournamentId, {
-          teamIds: [...tournament.teamIds, teamId],
+          teamIds: [...currentTeamIds, teamId],
         });
       }
     } catch (error) {
@@ -239,8 +242,11 @@ class TournamentService {
         throw new Error('Tournament not found');
       }
 
+      // Ensure teamIds exists and is an array
+      const currentTeamIds = Array.isArray(tournament.teamIds) ? tournament.teamIds : [];
+
       await this.updateTournament(tournamentId, {
-        teamIds: tournament.teamIds.filter((id) => id !== teamId),
+        teamIds: currentTeamIds.filter((id) => id !== teamId),
       });
     } catch (error) {
       console.error('Error removing team from tournament:', error);
@@ -261,7 +267,10 @@ class TournamentService {
         throw new Error('Tournament not found');
       }
 
-      if (tournament.teamIds.length < 2) {
+      // Ensure teamIds exists and is an array
+      const teamIds = Array.isArray(tournament.teamIds) ? tournament.teamIds : [];
+
+      if (teamIds.length < 2) {
         throw new Error('At least 2 teams required to generate fixtures');
       }
 
@@ -287,7 +296,7 @@ class TournamentService {
 
       const fixtures = FixtureGenerator.generateFixtures({
         tournamentId,
-        teams: tournament.teamIds,
+        teams: teamIds,
         format: tournament.format,
         startDate,
         venue: tournament.location,

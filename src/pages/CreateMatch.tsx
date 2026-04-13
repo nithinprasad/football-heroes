@@ -87,7 +87,7 @@ function CreateMatch() {
         return;
       }
 
-      // Friendly match - existing flow
+      // Friendly match - navigate to lineup setup page
       if (!formData.homeTeamId || !formData.awayTeamId) {
         throw new Error('Please select both teams');
       }
@@ -104,17 +104,16 @@ function CreateMatch() {
         throw new Error('Please enter match venue');
       }
 
-      const matchId = await matchService.createStandaloneMatch({
-        homeTeamId: formData.homeTeamId,
-        awayTeamId: formData.awayTeamId,
-        matchDate: new Date(formData.matchDate),
-        venue: formData.venue.trim(),
-        matchDuration: formData.matchDuration,
-        createdBy: currentUser.uid,
+      // Navigate to lineup setup page with match details
+      navigate('/match/friendly-setup', {
+        state: {
+          homeTeamId: formData.homeTeamId,
+          awayTeamId: formData.awayTeamId,
+          matchDate: formData.matchDate,
+          venue: formData.venue.trim(),
+          matchDuration: formData.matchDuration,
+        },
       });
-
-      toast.success('Match created successfully! You can now start scoring.', 'Success!');
-      navigate(`/matches/${matchId}`);
     } catch (err: any) {
       setError(err.message || 'Failed to create match');
     } finally {

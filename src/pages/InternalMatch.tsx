@@ -34,6 +34,13 @@ function InternalMatch() {
   const [teamSize, setTeamSize] = useState(11);
   const [location, setLocation] = useState('');
 
+  // Guest player state
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [guestName, setGuestName] = useState('');
+  const [guestPosition, setGuestPosition] = useState<Position>('Forward');
+  const [guestTeam, setGuestTeam] = useState<'A' | 'B'>('A');
+  const [guestStatus, setGuestStatus] = useState<'starting' | 'sub' | 'notPlaying'>('notPlaying');
+
   useEffect(() => {
     if (id) {
       loadTeamData();
@@ -108,6 +115,62 @@ function InternalMatch() {
     );
   };
 
+  const handleAddGuest = () => {
+    if (!guestName.trim()) {
+      toast.warning('Please enter guest player name', 'Name Required');
+      return;
+    }
+
+    // Create a guest player object
+    const guestPlayer: User = {
+      id: `guest_${Date.now()}_${guestName.trim().replace(/\s+/g, '_')}`,
+      name: guestName.trim(),
+      mobileNumber: '',
+      position: guestPosition,
+      roles: ['player'],
+      teamIds: [],
+      statistics: {
+        matches: 0,
+        goals: 0,
+        assists: 0,
+        cleanSheets: 0,
+        yellowCards: 0,
+        redCards: 0,
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Add to assignments
+    const newAssignment: PlayerAssignment = {
+      player: guestPlayer,
+      team: guestTeam,
+      status: guestStatus,
+      position: guestPosition,
+    };
+
+    setAssignments((prev) => [...prev, newAssignment]);
+    setPlayers((prev) => [...prev, guestPlayer]);
+
+    toast.success(`Guest player "${guestName}" added!`, 'Success');
+
+    // Reset and close modal
+    setGuestName('');
+    setGuestPosition('Forward');
+    setGuestTeam('A');
+    setGuestStatus('notPlaying');
+    setShowGuestModal(false);
+  };
+
+  const handleRemoveGuest = (playerId: string) => {
+    if (!playerId.startsWith('guest_')) return;
+
+    setAssignments((prev) => prev.filter((a) => a.player.id !== playerId));
+    setPlayers((prev) => prev.filter((p) => p.id !== playerId));
+
+    toast.success('Guest player removed', 'Success');
+  };
+
   const handleStartMatch = async () => {
     const teamAStarting = assignments.filter((a) => a.team === 'A' && a.status === 'starting');
     const teamBStarting = assignments.filter((a) => a.team === 'B' && a.status === 'starting');
@@ -150,6 +213,9 @@ function InternalMatch() {
         }
       });
 
+      // Extract guest players
+      const guestPlayers = players.filter((p) => p.id.startsWith('guest_'));
+
       // Create internal match (no tournament)
       const matchId = await matchService.createStandaloneMatch({
         homeTeamId: id!, // Use actual team ID
@@ -172,6 +238,8 @@ function InternalMatch() {
         awayNotPlaying: teamBNotPlaying.map((a) => a.player.id),
         // Position overrides
         playerPositions: Object.keys(playerPositions).length > 0 ? playerPositions : undefined,
+        // Guest players
+        guestPlayers: guestPlayers.length > 0 ? guestPlayers : undefined,
       });
 
       toast.success('Internal match created successfully!', 'Match Started');
@@ -223,7 +291,16 @@ function InternalMatch() {
 
         {/* Match Details */}
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 mb-6">
-          <h2 className="text-2xl font-black text-white mb-4">Match Details</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-black text-white">Match Details</h2>
+            <button
+              onClick={() => setShowGuestModal(true)}
+              className="px-4 py-2 bg-purple-500/20 border border-purple-500/30 text-purple-400 rounded-xl font-medium hover:bg-purple-500/30 transition-all flex items-center gap-2"
+            >
+              <span className="text-lg">➕</span>
+              Add Guest Player
+            </button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Match Name *</label>
@@ -295,7 +372,12 @@ function InternalMatch() {
                     <div key={player.id} className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                            {player.id.startsWith('guest_') && (
+                              <span className="px-1.5 py-0.5 bg-purple-500/20 border border-purple-500/40 rounded text-purple-400 text-[10px] font-bold">GUEST</span>
+                            )}
+                          </div>
                           <select
                             value={currentPosition || 'Forward'}
                             onChange={(e) => handleUpdatePosition(player.id, e.target.value as Position)}
@@ -309,6 +391,9 @@ function InternalMatch() {
                           </select>
                         </div>
                         <div className="flex gap-1">
+                          {player.id.startsWith('guest_') && (
+                            <button onClick={() => handleRemoveGuest(player.id)} className="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs" title="Remove Guest">🗑</button>
+                          )}
                           <button onClick={() => handleAssignPlayer(player.id, 'A', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
                           <button onClick={() => handleAssignPlayer(player.id, 'A', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
                           <button onClick={() => handleAssignPlayer(player.id, 'B', 'starting')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Team B">→B</button>
@@ -332,7 +417,12 @@ function InternalMatch() {
                     <div key={player.id} className="p-2 bg-slate-800/50 rounded-lg border border-white/10">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                            {player.id.startsWith('guest_') && (
+                              <span className="px-1.5 py-0.5 bg-purple-500/20 border border-purple-500/40 rounded text-purple-400 text-[10px] font-bold">GUEST</span>
+                            )}
+                          </div>
                           <select
                             value={currentPosition || 'Forward'}
                             onChange={(e) => handleUpdatePosition(player.id, e.target.value as Position)}
@@ -346,6 +436,9 @@ function InternalMatch() {
                           </select>
                         </div>
                         <div className="flex gap-1">
+                          {player.id.startsWith('guest_') && (
+                            <button onClick={() => handleRemoveGuest(player.id)} className="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs" title="Remove Guest">🗑</button>
+                          )}
                           <button onClick={() => handleAssignPlayer(player.id, 'A', 'starting')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Starting">⭐</button>
                           <button onClick={() => handleAssignPlayer(player.id, 'A', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
                           <button onClick={() => handleAssignPlayer(player.id, 'B', 'sub')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Team B">→B</button>
@@ -369,7 +462,12 @@ function InternalMatch() {
                     <div key={player.id} className="p-2 bg-slate-900/30 rounded-lg border border-white/5">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-slate-400 font-bold text-sm truncate">{player.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-slate-400 font-bold text-sm truncate">{player.name}</p>
+                            {player.id.startsWith('guest_') && (
+                              <span className="px-1.5 py-0.5 bg-purple-500/20 border border-purple-500/40 rounded text-purple-400 text-[10px] font-bold">GUEST</span>
+                            )}
+                          </div>
                           <select
                             value={currentPosition || 'Forward'}
                             onChange={(e) => handleUpdatePosition(player.id, e.target.value as Position)}
@@ -383,6 +481,9 @@ function InternalMatch() {
                           </select>
                         </div>
                         <div className="flex gap-1">
+                          {player.id.startsWith('guest_') && (
+                            <button onClick={() => handleRemoveGuest(player.id)} className="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs" title="Remove Guest">🗑</button>
+                          )}
                           <button onClick={() => handleAssignPlayer(player.id, 'A', 'starting')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Starting">⭐</button>
                           <button onClick={() => handleAssignPlayer(player.id, 'A', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
                           <button onClick={() => handleAssignPlayer(player.id, 'B', 'notPlaying')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Team B">→B</button>
@@ -416,7 +517,12 @@ function InternalMatch() {
                     <div key={player.id} className="p-2 bg-green-500/10 rounded-lg border border-green-500/20">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                            {player.id.startsWith('guest_') && (
+                              <span className="px-1.5 py-0.5 bg-purple-500/20 border border-purple-500/40 rounded text-purple-400 text-[10px] font-bold">GUEST</span>
+                            )}
+                          </div>
                           <select
                             value={currentPosition || 'Forward'}
                             onChange={(e) => handleUpdatePosition(player.id, e.target.value as Position)}
@@ -430,6 +536,9 @@ function InternalMatch() {
                           </select>
                         </div>
                         <div className="flex gap-1">
+                          {player.id.startsWith('guest_') && (
+                            <button onClick={() => handleRemoveGuest(player.id)} className="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs" title="Remove Guest">🗑</button>
+                          )}
                           <button onClick={() => handleAssignPlayer(player.id, 'A', 'starting')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Team A">A←</button>
                           <button onClick={() => handleAssignPlayer(player.id, 'B', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
                           <button onClick={() => handleAssignPlayer(player.id, 'B', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
@@ -453,7 +562,12 @@ function InternalMatch() {
                     <div key={player.id} className="p-2 bg-slate-800/50 rounded-lg border border-white/10">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                            {player.id.startsWith('guest_') && (
+                              <span className="px-1.5 py-0.5 bg-purple-500/20 border border-purple-500/40 rounded text-purple-400 text-[10px] font-bold">GUEST</span>
+                            )}
+                          </div>
                           <select
                             value={currentPosition || 'Forward'}
                             onChange={(e) => handleUpdatePosition(player.id, e.target.value as Position)}
@@ -467,6 +581,9 @@ function InternalMatch() {
                           </select>
                         </div>
                         <div className="flex gap-1">
+                          {player.id.startsWith('guest_') && (
+                            <button onClick={() => handleRemoveGuest(player.id)} className="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs" title="Remove Guest">🗑</button>
+                          )}
                           <button onClick={() => handleAssignPlayer(player.id, 'A', 'sub')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Team A">A←</button>
                           <button onClick={() => handleAssignPlayer(player.id, 'B', 'starting')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Starting">⭐</button>
                           <button onClick={() => handleAssignPlayer(player.id, 'B', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
@@ -490,7 +607,12 @@ function InternalMatch() {
                     <div key={player.id} className="p-2 bg-slate-900/30 rounded-lg border border-white/5">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-slate-400 font-bold text-sm truncate">{player.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-slate-400 font-bold text-sm truncate">{player.name}</p>
+                            {player.id.startsWith('guest_') && (
+                              <span className="px-1.5 py-0.5 bg-purple-500/20 border border-purple-500/40 rounded text-purple-400 text-[10px] font-bold">GUEST</span>
+                            )}
+                          </div>
                           <select
                             value={currentPosition || 'Forward'}
                             onChange={(e) => handleUpdatePosition(player.id, e.target.value as Position)}
@@ -504,6 +626,9 @@ function InternalMatch() {
                           </select>
                         </div>
                         <div className="flex gap-1">
+                          {player.id.startsWith('guest_') && (
+                            <button onClick={() => handleRemoveGuest(player.id)} className="px-2 py-1 bg-red-500/20 text-red-400 rounded text-xs" title="Remove Guest">🗑</button>
+                          )}
                           <button onClick={() => handleAssignPlayer(player.id, 'A', 'notPlaying')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Team A">A←</button>
                           <button onClick={() => handleAssignPlayer(player.id, 'B', 'starting')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Starting">⭐</button>
                           <button onClick={() => handleAssignPlayer(player.id, 'B', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
@@ -552,6 +677,138 @@ function InternalMatch() {
           </p>
         </div>
       </div>
+
+      {/* Guest Player Modal */}
+      {showGuestModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 rounded-3xl border border-white/10 shadow-2xl p-6 max-w-md w-full">
+            <h3 className="text-2xl font-black text-white mb-4">Add Guest Player</h3>
+            <p className="text-slate-400 text-sm mb-6">Add a guest player who isn't part of your team roster.</p>
+
+            <div className="space-y-4">
+              {/* Guest Name */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Guest Name *</label>
+                <input
+                  type="text"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-900 border border-white/10 rounded-xl text-white"
+                  placeholder="Enter guest player name"
+                  autoFocus
+                />
+              </div>
+
+              {/* Position */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Position *</label>
+                <select
+                  value={guestPosition}
+                  onChange={(e) => setGuestPosition(e.target.value as Position)}
+                  className="w-full px-4 py-2 bg-slate-900 border border-white/10 rounded-xl text-white"
+                >
+                  <option value="Goalkeeper">🧤 Goalkeeper</option>
+                  <option value="Defender">🛡️ Defender</option>
+                  <option value="Midfielder">⚡ Midfielder</option>
+                  <option value="Forward">⚽ Forward</option>
+                </select>
+              </div>
+
+              {/* Team Selection */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Team *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setGuestTeam('A')}
+                    className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                      guestTeam === 'A'
+                        ? 'bg-blue-500/20 border-2 border-blue-500 text-blue-400'
+                        : 'bg-slate-900 border border-white/10 text-slate-400 hover:bg-slate-700'
+                    }`}
+                  >
+                    Team A
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGuestTeam('B')}
+                    className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                      guestTeam === 'B'
+                        ? 'bg-green-500/20 border-2 border-green-500 text-green-400'
+                        : 'bg-slate-900 border border-white/10 text-slate-400 hover:bg-slate-700'
+                    }`}
+                  >
+                    Team B
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Selection */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Status *</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setGuestStatus('starting')}
+                    className={`px-3 py-2 rounded-xl font-medium text-sm transition-all ${
+                      guestStatus === 'starting'
+                        ? 'bg-green-500/20 border-2 border-green-500 text-green-400'
+                        : 'bg-slate-900 border border-white/10 text-slate-400 hover:bg-slate-700'
+                    }`}
+                  >
+                    Starting
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGuestStatus('sub')}
+                    className={`px-3 py-2 rounded-xl font-medium text-sm transition-all ${
+                      guestStatus === 'sub'
+                        ? 'bg-yellow-500/20 border-2 border-yellow-500 text-yellow-400'
+                        : 'bg-slate-900 border border-white/10 text-slate-400 hover:bg-slate-700'
+                    }`}
+                  >
+                    Sub
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGuestStatus('notPlaying')}
+                    className={`px-3 py-2 rounded-xl font-medium text-sm transition-all ${
+                      guestStatus === 'notPlaying'
+                        ? 'bg-slate-500/20 border-2 border-slate-500 text-slate-400'
+                        : 'bg-slate-900 border border-white/10 text-slate-400 hover:bg-slate-700'
+                    }`}
+                  >
+                    Not Playing
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowGuestModal(false);
+                  setGuestName('');
+                  setGuestPosition('Forward');
+                  setGuestTeam('A');
+                  setGuestStatus('notPlaying');
+                }}
+                className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-xl font-medium hover:bg-slate-600 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddGuest}
+                disabled={!guestName.trim()}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-xl font-bold hover:from-purple-600 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Add Guest
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

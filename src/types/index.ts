@@ -145,6 +145,14 @@ export interface Match {
   internalTeamA?: string[]; // Player IDs assigned to Team A (for internal matches)
   internalTeamB?: string[]; // Player IDs assigned to Team B (for internal matches)
   matchName?: string; // Custom name for internal/standalone matches
+  teamSize?: number; // Team size for internal matches (5, 7, 11, etc.)
+  // Lineup management
+  homeStarting?: string[]; // Home team / Team A starting lineup
+  homeSubs?: string[]; // Home team / Team A substitutes
+  homeNotPlaying?: string[]; // Home team / Team A not playing
+  awayStarting?: string[]; // Away team / Team B starting lineup
+  awaySubs?: string[]; // Away team / Team B substitutes
+  awayNotPlaying?: string[]; // Away team / Team B not playing
   createdAt: Date;
   updatedAt: Date;
 }

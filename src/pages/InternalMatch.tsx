@@ -10,7 +10,8 @@ import Header from '../components/Header';
 
 interface PlayerAssignment {
   player: User;
-  team: 'A' | 'B' | 'bench';
+  team: 'A' | 'B';
+  status: 'starting' | 'sub' | 'notPlaying';
 }
 
 function InternalMatch() {
@@ -29,6 +30,8 @@ function InternalMatch() {
   const [matchName, setMatchName] = useState('');
   const [venue, setVenue] = useState('Training Ground');
   const [duration, setDuration] = useState(90);
+  const [teamSize, setTeamSize] = useState(11);
+  const [location, setLocation] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -56,6 +59,7 @@ function InternalMatch() {
 
       setTeam(teamData);
       setMatchName(`${teamData.name} - Internal Match`);
+      setLocation(teamData.location || '');
 
       // Load players
       if (teamData.playerIds && teamData.playerIds.length > 0) {
@@ -65,11 +69,12 @@ function InternalMatch() {
         const validPlayers = playersData.filter((p) => p !== null) as User[];
         setPlayers(validPlayers);
 
-        // Initialize all players on bench
+        // Initialize all players to Team A, not playing
         setAssignments(
           validPlayers.map((player) => ({
             player,
-            team: 'bench',
+            team: 'A',
+            status: 'notPlaying',
           }))
         );
       }
@@ -82,23 +87,27 @@ function InternalMatch() {
     }
   };
 
-  const handleAssignPlayer = (playerId: string, newTeam: 'A' | 'B' | 'bench') => {
+  const handleAssignPlayer = (playerId: string, newTeam: 'A' | 'B', newStatus: 'starting' | 'sub' | 'notPlaying') => {
     setAssignments((prev) =>
       prev.map((assignment) =>
         assignment.player.id === playerId
-          ? { ...assignment, team: newTeam }
+          ? { ...assignment, team: newTeam, status: newStatus }
           : assignment
       )
     );
   };
 
   const handleStartMatch = async () => {
-    const teamAPlayers = assignments.filter((a) => a.team === 'A');
-    const teamBPlayers = assignments.filter((a) => a.team === 'B');
+    const teamAStarting = assignments.filter((a) => a.team === 'A' && a.status === 'starting');
+    const teamBStarting = assignments.filter((a) => a.team === 'B' && a.status === 'starting');
+    const teamASubs = assignments.filter((a) => a.team === 'A' && a.status === 'sub');
+    const teamBSubs = assignments.filter((a) => a.team === 'B' && a.status === 'sub');
+    const teamANotPlaying = assignments.filter((a) => a.team === 'A' && a.status === 'notPlaying');
+    const teamBNotPlaying = assignments.filter((a) => a.team === 'B' && a.status === 'notPlaying');
 
     // Validation
-    if (teamAPlayers.length === 0 || teamBPlayers.length === 0) {
-      toast.warning('Both teams must have at least one player', 'Invalid Teams');
+    if (teamAStarting.length === 0 || teamBStarting.length === 0) {
+      toast.warning('Both teams must have at least one starting player', 'Invalid Teams');
       return;
     }
 
@@ -107,8 +116,13 @@ function InternalMatch() {
       return;
     }
 
+    if (!location.trim()) {
+      toast.warning('Please enter match location', 'Location Required');
+      return;
+    }
+
     const confirmed = await toast.confirm(
-      `Start internal match with Team A (${teamAPlayers.length} players) vs Team B (${teamBPlayers.length} players)?`,
+      `Start internal match?\nTeam A: ${teamAStarting.length} starters + ${teamASubs.length} subs\nTeam B: ${teamBStarting.length} starters + ${teamBSubs.length} subs`,
       'Start Internal Match'
     );
 
@@ -121,14 +135,22 @@ function InternalMatch() {
       const matchId = await matchService.createStandaloneMatch({
         homeTeamId: id!, // Use actual team ID
         awayTeamId: id!, // Same team
-        venue: venue.trim() || 'Training Ground',
+        venue: location.trim(),
         matchDate: new Date(),
         matchDuration: duration,
         createdBy: currentUser!.uid,
         isInternalMatch: true, // Mark as internal
-        internalTeamA: teamAPlayers.map((a) => a.player.id),
-        internalTeamB: teamBPlayers.map((a) => a.player.id),
+        internalTeamA: [...teamAStarting, ...teamASubs, ...teamANotPlaying].map((a) => a.player.id),
+        internalTeamB: [...teamBStarting, ...teamBSubs, ...teamBNotPlaying].map((a) => a.player.id),
         matchName: matchName.trim(),
+        teamSize,
+        // Lineup data
+        homeStarting: teamAStarting.map((a) => a.player.id),
+        homeSubs: teamASubs.map((a) => a.player.id),
+        homeNotPlaying: teamANotPlaying.map((a) => a.player.id),
+        awayStarting: teamBStarting.map((a) => a.player.id),
+        awaySubs: teamBSubs.map((a) => a.player.id),
+        awayNotPlaying: teamBNotPlaying.map((a) => a.player.id),
       });
 
       toast.success('Internal match created successfully!', 'Match Started');
@@ -141,9 +163,12 @@ function InternalMatch() {
     }
   };
 
-  const teamAPlayers = assignments.filter((a) => a.team === 'A');
-  const teamBPlayers = assignments.filter((a) => a.team === 'B');
-  const benchPlayers = assignments.filter((a) => a.team === 'bench');
+  const teamAStarting = assignments.filter((a) => a.team === 'A' && a.status === 'starting');
+  const teamASubs = assignments.filter((a) => a.team === 'A' && a.status === 'sub');
+  const teamANotPlaying = assignments.filter((a) => a.team === 'A' && a.status === 'notPlaying');
+  const teamBStarting = assignments.filter((a) => a.team === 'B' && a.status === 'starting');
+  const teamBSubs = assignments.filter((a) => a.team === 'B' && a.status === 'sub');
+  const teamBNotPlaying = assignments.filter((a) => a.team === 'B' && a.status === 'notPlaying');
 
   if (loading) {
     return (
@@ -178,9 +203,9 @@ function InternalMatch() {
         {/* Match Details */}
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 mb-6">
           <h2 className="text-2xl font-black text-white mb-4">Match Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Match Name</label>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Match Name *</label>
               <input
                 type="text"
                 value={matchName}
@@ -190,14 +215,28 @@ function InternalMatch() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Venue</label>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Location *</label>
               <input
                 type="text"
-                value={venue}
-                onChange={(e) => setVenue(e.target.value)}
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
                 className="w-full px-4 py-2 bg-slate-900 border border-white/10 rounded-xl text-white"
                 placeholder="Training Ground"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Team Size *</label>
+              <select
+                value={teamSize}
+                onChange={(e) => setTeamSize(parseInt(e.target.value))}
+                className="w-full px-4 py-2 bg-slate-900 border border-white/10 rounded-xl text-white"
+              >
+                <option value="5">5-a-side</option>
+                <option value="6">6-a-side</option>
+                <option value="7">7-a-side</option>
+                <option value="9">9-a-side</option>
+                <option value="11">11-a-side</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Duration (mins)</label>
@@ -214,148 +253,162 @@ function InternalMatch() {
         </div>
 
         {/* Team Assignment */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* Team A */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Team A Section */}
           <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-xl rounded-3xl border border-blue-500/30 p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-black text-blue-400">Team A</h3>
               <span className="px-3 py-1 bg-blue-500/20 border border-blue-500/30 rounded-full text-blue-400 text-sm font-bold">
-                {teamAPlayers.length} players
+                {teamAStarting.length + teamASubs.length + teamANotPlaying.length} players
               </span>
             </div>
 
-            <div className="space-y-2 min-h-[200px]">
-              {teamAPlayers.map(({ player }) => (
-                <div
-                  key={player.id}
-                  className="p-3 bg-slate-900/50 rounded-xl border border-white/10 group hover:border-blue-500/50 transition-all"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="text-white font-bold text-sm">{player.name}</p>
-                      <p className="text-slate-400 text-xs">{player.position}</p>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleAssignPlayer(player.id, 'B')}
-                        className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs hover:bg-green-500/30"
-                        title="Move to Team B"
-                      >
-                        →B
-                      </button>
-                      <button
-                        onClick={() => handleAssignPlayer(player.id, 'bench')}
-                        className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs hover:bg-slate-600"
-                        title="Move to Bench"
-                      >
-                        Bench
-                      </button>
+            {/* Starting XI */}
+            <div className="mb-4">
+              <h4 className="text-sm font-bold text-blue-300 mb-2">Starting XI ({teamAStarting.length}/{teamSize})</h4>
+              <div className="space-y-2 min-h-[100px]">
+                {teamAStarting.map(({ player }) => (
+                  <div key={player.id} className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                        <p className="text-slate-400 text-xs">{player.position}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
+                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
+                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'starting')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Team B">→B</button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+                {teamAStarting.length === 0 && <p className="text-slate-500 text-sm italic text-center py-4">No starters</p>}
+              </div>
+            </div>
 
-              {teamAPlayers.length === 0 && (
-                <div className="text-center py-12 text-slate-500 text-sm">
-                  No players assigned to Team A
-                </div>
-              )}
+            {/* Substitutes */}
+            <div className="mb-4">
+              <h4 className="text-sm font-bold text-blue-300 mb-2">Substitutes ({teamASubs.length})</h4>
+              <div className="space-y-2 min-h-[60px]">
+                {teamASubs.map(({ player }) => (
+                  <div key={player.id} className="p-2 bg-slate-800/50 rounded-lg border border-white/10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                        <p className="text-slate-400 text-xs">{player.position}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'starting')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Starting">⭐</button>
+                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
+                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'sub')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Team B">→B</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {teamASubs.length === 0 && <p className="text-slate-500 text-sm italic text-center py-2">No substitutes</p>}
+              </div>
+            </div>
+
+            {/* Not Playing */}
+            <div>
+              <h4 className="text-sm font-bold text-slate-400 mb-2">Not Playing ({teamANotPlaying.length})</h4>
+              <div className="space-y-2 min-h-[60px]">
+                {teamANotPlaying.map(({ player }) => (
+                  <div key={player.id} className="p-2 bg-slate-900/30 rounded-lg border border-white/5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-slate-400 font-bold text-sm truncate">{player.name}</p>
+                        <p className="text-slate-500 text-xs">{player.position}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'starting')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Starting">⭐</button>
+                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
+                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'notPlaying')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Team B">→B</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {teamANotPlaying.length === 0 && <p className="text-slate-500 text-sm italic text-center py-2">All players assigned</p>}
+              </div>
             </div>
           </div>
 
-          {/* Bench */}
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-2xl font-black text-white">Available Players</h3>
-              <span className="px-3 py-1 bg-slate-700 rounded-full text-slate-300 text-sm font-bold">
-                {benchPlayers.length} players
-              </span>
-            </div>
-
-            <div className="space-y-2 min-h-[200px]">
-              {benchPlayers.map(({ player }) => (
-                <div
-                  key={player.id}
-                  className="p-3 bg-slate-900/50 rounded-xl border border-white/10 group hover:border-green-500/50 transition-all"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="text-white font-bold text-sm">{player.name}</p>
-                      <p className="text-slate-400 text-xs">{player.position}</p>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleAssignPlayer(player.id, 'A')}
-                        className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs hover:bg-blue-500/30"
-                        title="Add to Team A"
-                      >
-                        A
-                      </button>
-                      <button
-                        onClick={() => handleAssignPlayer(player.id, 'B')}
-                        className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs hover:bg-green-500/30"
-                        title="Add to Team B"
-                      >
-                        B
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {benchPlayers.length === 0 && (
-                <div className="text-center py-12 text-slate-500 text-sm">
-                  All players assigned to teams
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Team B */}
+          {/* Team B Section */}
           <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl rounded-3xl border border-green-500/30 p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-black text-green-400">Team B</h3>
               <span className="px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-full text-green-400 text-sm font-bold">
-                {teamBPlayers.length} players
+                {teamBStarting.length + teamBSubs.length + teamBNotPlaying.length} players
               </span>
             </div>
 
-            <div className="space-y-2 min-h-[200px]">
-              {teamBPlayers.map(({ player }) => (
-                <div
-                  key={player.id}
-                  className="p-3 bg-slate-900/50 rounded-xl border border-white/10 group hover:border-green-500/50 transition-all"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="text-white font-bold text-sm">{player.name}</p>
-                      <p className="text-slate-400 text-xs">{player.position}</p>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleAssignPlayer(player.id, 'A')}
-                        className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs hover:bg-blue-500/30"
-                        title="Move to Team A"
-                      >
-                        A←
-                      </button>
-                      <button
-                        onClick={() => handleAssignPlayer(player.id, 'bench')}
-                        className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs hover:bg-slate-600"
-                        title="Move to Bench"
-                      >
-                        Bench
-                      </button>
+            {/* Starting XI */}
+            <div className="mb-4">
+              <h4 className="text-sm font-bold text-green-300 mb-2">Starting XI ({teamBStarting.length}/{teamSize})</h4>
+              <div className="space-y-2 min-h-[100px]">
+                {teamBStarting.map(({ player }) => (
+                  <div key={player.id} className="p-2 bg-green-500/10 rounded-lg border border-green-500/20">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                        <p className="text-slate-400 text-xs">{player.position}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'starting')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Team A">A←</button>
+                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
+                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+                {teamBStarting.length === 0 && <p className="text-slate-500 text-sm italic text-center py-4">No starters</p>}
+              </div>
+            </div>
 
-              {teamBPlayers.length === 0 && (
-                <div className="text-center py-12 text-slate-500 text-sm">
-                  No players assigned to Team B
-                </div>
-              )}
+            {/* Substitutes */}
+            <div className="mb-4">
+              <h4 className="text-sm font-bold text-green-300 mb-2">Substitutes ({teamBSubs.length})</h4>
+              <div className="space-y-2 min-h-[60px]">
+                {teamBSubs.map(({ player }) => (
+                  <div key={player.id} className="p-2 bg-slate-800/50 rounded-lg border border-white/10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-bold text-sm truncate">{player.name}</p>
+                        <p className="text-slate-400 text-xs">{player.position}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'sub')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Team A">A←</button>
+                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'starting')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Starting">⭐</button>
+                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'notPlaying')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="Not Playing">×</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {teamBSubs.length === 0 && <p className="text-slate-500 text-sm italic text-center py-2">No substitutes</p>}
+              </div>
+            </div>
+
+            {/* Not Playing */}
+            <div>
+              <h4 className="text-sm font-bold text-slate-400 mb-2">Not Playing ({teamBNotPlaying.length})</h4>
+              <div className="space-y-2 min-h-[60px]">
+                {teamBNotPlaying.map(({ player }) => (
+                  <div key={player.id} className="p-2 bg-slate-900/30 rounded-lg border border-white/5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-slate-400 font-bold text-sm truncate">{player.name}</p>
+                        <p className="text-slate-500 text-xs">{player.position}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => handleAssignPlayer(player.id, 'A', 'notPlaying')} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs" title="To Team A">A←</button>
+                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'starting')} className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs" title="To Starting">⭐</button>
+                        <button onClick={() => handleAssignPlayer(player.id, 'B', 'sub')} className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs" title="To Subs">Sub</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {teamBNotPlaying.length === 0 && <p className="text-slate-500 text-sm italic text-center py-2">All players assigned</p>}
+              </div>
             </div>
           </div>
         </div>

@@ -79,8 +79,12 @@ function ProfileSetup({ userId, mobileNumber, onComplete, onSkip }: ProfileSetup
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-10">
           <div className="text-center mb-8">
             <div className="text-6xl mb-4">⚽</div>
-            <h2 className="text-3xl md:text-4xl font-black text-white mb-2">Complete Your Profile</h2>
-            <p className="text-slate-400 text-sm md:text-base">Tell us about yourself to get started</p>
+            <h2 className="text-3xl md:text-4xl font-black text-white mb-2">
+              {onSkip ? 'Complete Your Profile' : 'Welcome! Set Up Your Profile'}
+            </h2>
+            <p className="text-slate-400 text-sm md:text-base">
+              {onSkip ? 'Tell us about yourself to get started' : 'Please complete your profile to continue'}
+            </p>
           </div>
 
           {error && (

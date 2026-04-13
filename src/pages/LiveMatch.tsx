@@ -548,6 +548,154 @@ function LiveMatch() {
           </div>
         )}
 
+        {/* Team Lineups */}
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-8 mb-6">
+          <h3 className="text-2xl font-black text-white mb-6 text-center">
+            {match.isInternalMatch ? '⚔️ TEAM LINEUPS' : '📋 STARTING LINEUPS'}
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Home Team / Team A Lineup */}
+            <div className="bg-gradient-to-br from-green-500/5 to-emerald-500/5 rounded-2xl border border-green-500/20 p-6">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-green-500/20">
+                {homeTeam?.logoURL && (
+                  <img src={homeTeam.logoURL} alt={homeTeam.name} className="w-10 h-10 object-contain" />
+                )}
+                <div>
+                  <h4 className="text-xl font-black text-green-400">
+                    {match.isInternalMatch ? 'Team A' : homeTeam?.name}
+                  </h4>
+                  {!match.isInternalMatch && homeTeam?.location && (
+                    <p className="text-xs text-slate-400">📍 {homeTeam.location}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {(match.isInternalMatch && match.internalTeamA
+                  ? homePlayers.filter(p => match.internalTeamA?.includes(p.id))
+                  : homePlayers
+                ).map((player, idx) => (
+                  <Link
+                    key={player.id}
+                    to={`/users/${player.id}`}
+                    className="flex items-center gap-3 p-3 bg-slate-900/30 hover:bg-slate-900/50 rounded-xl border border-white/5 hover:border-green-500/30 transition-all group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20 flex-shrink-0">
+                      {player.photoURL ? (
+                        <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-lg">👤</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-bold text-sm truncate group-hover:text-green-400 transition-colors">
+                        {player.name}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {player.position} {player.jerseyNumber ? `• #${player.jerseyNumber}` : ''}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+
+                {guestPlayers.filter(g => g.team === 'home').map((guest) => (
+                  <div
+                    key={guest.id}
+                    className="flex items-center gap-3 p-3 bg-purple-500/10 rounded-xl border border-purple-500/20"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
+                      <span className="text-lg">👤</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-bold text-sm truncate">{guest.name}</p>
+                      <p className="text-xs text-purple-400">Guest Player</p>
+                    </div>
+                  </div>
+                ))}
+
+                {(match.isInternalMatch && match.internalTeamA
+                  ? homePlayers.filter(p => match.internalTeamA?.includes(p.id))
+                  : homePlayers
+                ).length === 0 && guestPlayers.filter(g => g.team === 'home').length === 0 && (
+                  <p className="text-slate-500 text-sm italic text-center py-4">No players</p>
+                )}
+              </div>
+            </div>
+
+            {/* Away Team / Team B Lineup */}
+            <div className="bg-gradient-to-br from-blue-500/5 to-cyan-500/5 rounded-2xl border border-blue-500/20 p-6">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-blue-500/20">
+                {awayTeam?.logoURL && !match.isInternalMatch && (
+                  <img src={awayTeam.logoURL} alt={awayTeam.name} className="w-10 h-10 object-contain" />
+                )}
+                {match.isInternalMatch && homeTeam?.logoURL && (
+                  <img src={homeTeam.logoURL} alt={homeTeam.name} className="w-10 h-10 object-contain" />
+                )}
+                <div>
+                  <h4 className="text-xl font-black text-blue-400">
+                    {match.isInternalMatch ? 'Team B' : awayTeam?.name}
+                  </h4>
+                  {!match.isInternalMatch && awayTeam?.location && (
+                    <p className="text-xs text-slate-400">📍 {awayTeam.location}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {(match.isInternalMatch && match.internalTeamB
+                  ? homePlayers.filter(p => match.internalTeamB?.includes(p.id))
+                  : awayPlayers
+                ).map((player, idx) => (
+                  <Link
+                    key={player.id}
+                    to={`/users/${player.id}`}
+                    className="flex items-center gap-3 p-3 bg-slate-900/30 hover:bg-slate-900/50 rounded-xl border border-white/5 hover:border-blue-500/30 transition-all group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border-2 border-white/20 flex-shrink-0">
+                      {player.photoURL ? (
+                        <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-lg">👤</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-bold text-sm truncate group-hover:text-blue-400 transition-colors">
+                        {player.name}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {player.position} {player.jerseyNumber ? `• #${player.jerseyNumber}` : ''}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+
+                {guestPlayers.filter(g => g.team === 'away').map((guest) => (
+                  <div
+                    key={guest.id}
+                    className="flex items-center gap-3 p-3 bg-purple-500/10 rounded-xl border border-purple-500/20"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
+                      <span className="text-lg">👤</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-bold text-sm truncate">{guest.name}</p>
+                      <p className="text-xs text-purple-400">Guest Player</p>
+                    </div>
+                  </div>
+                ))}
+
+                {(match.isInternalMatch && match.internalTeamB
+                  ? homePlayers.filter(p => match.internalTeamB?.includes(p.id))
+                  : awayPlayers
+                ).length === 0 && guestPlayers.filter(g => g.team === 'away').length === 0 && (
+                  <p className="text-slate-500 text-sm italic text-center py-4">No players</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {match.status === 'ONGOING' && match.createdBy === currentUser?.uid && (
           <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-8 mb-6">
             <h3 className="text-2xl font-black text-white mb-6">⚽ Record Stats</h3>

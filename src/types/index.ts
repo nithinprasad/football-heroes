@@ -308,6 +308,7 @@ export interface ProfileFormData {
 export interface TeamFormData {
   name: string;
   logoURL?: string;
+  location?: string;
 }
 
 export interface TournamentFormData {

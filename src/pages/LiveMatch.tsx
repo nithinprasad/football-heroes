@@ -1140,6 +1140,7 @@ function LiveMatch() {
                     yellow: '🟨',
                     red: '🟥',
                     owngoal: '⚽🔴',
+                    substitution: '🔄',
                   }[event.type];
 
                   const eventLabel = {
@@ -1148,6 +1149,7 @@ function LiveMatch() {
                     yellow: 'Yellow Card',
                     red: 'Red Card',
                     owngoal: 'Own Goal',
+                    substitution: 'Substitution',
                   }[event.type];
 
                   const eventTime = event.timestamp instanceof Date

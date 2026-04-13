@@ -184,6 +184,14 @@ function TeamProfile() {
             <div className="flex-1 text-center md:text-left">
               <h1 className="text-4xl md:text-5xl font-black text-white mb-4">{team.name}</h1>
 
+              {/* Location */}
+              {team.location && (
+                <div className="flex items-center gap-2 justify-center md:justify-start mb-4">
+                  <span className="text-2xl">📍</span>
+                  <span className="text-slate-300 text-lg font-medium">{team.location}</span>
+                </div>
+              )}
+
               {/* Form */}
               {form.length > 0 && (
                 <div className="flex items-center gap-2 justify-center md:justify-start mb-6">

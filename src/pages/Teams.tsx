@@ -24,7 +24,8 @@ function Teams() {
       const filtered = teams.filter(
         (t) =>
           t.name.toLowerCase().includes(query) ||
-          (t.teamId && t.teamId.toLowerCase().includes(query))
+          (t.teamId && t.teamId.toLowerCase().includes(query)) ||
+          (t.location && t.location.toLowerCase().includes(query))
       );
       setFilteredTeams(filtered);
     }
@@ -86,7 +87,7 @@ function Teams() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search teams by name or Team ID..."
+              placeholder="Search teams by name, location or Team ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-6 py-4 bg-slate-800/50 backdrop-blur-xl border border-white/10 rounded-2xl text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm md:text-base"
@@ -162,6 +163,12 @@ function Teams() {
                   </h3>
 
                   <div className="space-y-2 text-xs md:text-sm text-slate-400 mb-4">
+                    {team.location && (
+                      <div className="flex items-center gap-2">
+                        <span>📍</span>
+                        <span className="truncate">{team.location}</span>
+                      </div>
+                    )}
                     {team.teamId && (
                       <div className="flex items-center gap-2">
                         <span>🆔</span>

@@ -241,8 +241,22 @@ function CreateMatch() {
                     required={!formData.homeTeamId}
                   />
                   {formData.homeTeamId && (
-                    <div className="mt-2 px-4 py-2 bg-green-500/10 border border-green-500/30 rounded-lg text-green-400 text-sm flex items-center justify-between">
-                      <span>✓ {getTeamDisplay(formData.homeTeamId)}</span>
+                    <div className="mt-2 px-4 py-2 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center overflow-hidden">
+                          {teams.find(t => t.id === formData.homeTeamId)?.logoURL ? (
+                            <img src={teams.find(t => t.id === formData.homeTeamId)?.logoURL} alt="" className="w-full h-full object-contain p-1" />
+                          ) : (
+                            <span className="text-sm">⚽</span>
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-green-400 text-sm font-bold">✓ {getTeamDisplay(formData.homeTeamId)}</div>
+                          {teams.find(t => t.id === formData.homeTeamId)?.location && (
+                            <div className="text-xs text-green-400/70">📍 {teams.find(t => t.id === formData.homeTeamId)?.location}</div>
+                          )}
+                        </div>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
@@ -267,9 +281,27 @@ function CreateMatch() {
                               setHomeTeamSearch(team.name);
                               setShowHomeDropdown(false);
                             }}
-                            className="w-full px-4 py-3 text-left text-white hover:bg-slate-800 transition-all border-b border-white/5 last:border-b-0"
+                            className="w-full px-4 py-3 text-left text-white hover:bg-slate-800 transition-all border-b border-white/5 last:border-b-0 flex items-center gap-3"
                           >
-                            {team.teamId ? `${team.name} (${team.teamId})` : team.name}
+                            <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {team.logoURL ? (
+                                <img src={team.logoURL} alt="" className="w-full h-full object-contain p-1" />
+                              ) : (
+                                <span className="text-lg">⚽</span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold truncate">
+                                {team.name}
+                                {team.teamId && <span className="text-slate-500 text-xs ml-2">({team.teamId})</span>}
+                              </div>
+                              {team.location && (
+                                <div className="text-xs text-slate-500 flex items-center gap-1">
+                                  <span>📍</span>
+                                  {team.location}
+                                </div>
+                              )}
+                            </div>
                           </button>
                         ))
                       ) : (
@@ -299,8 +331,22 @@ function CreateMatch() {
                     required={!formData.awayTeamId}
                   />
                   {formData.awayTeamId && (
-                    <div className="mt-2 px-4 py-2 bg-blue-500/10 border border-blue-500/30 rounded-lg text-blue-400 text-sm flex items-center justify-between">
-                      <span>✓ {getTeamDisplay(formData.awayTeamId)}</span>
+                    <div className="mt-2 px-4 py-2 bg-blue-500/10 border border-blue-500/30 rounded-lg flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center overflow-hidden">
+                          {teams.find(t => t.id === formData.awayTeamId)?.logoURL ? (
+                            <img src={teams.find(t => t.id === formData.awayTeamId)?.logoURL} alt="" className="w-full h-full object-contain p-1" />
+                          ) : (
+                            <span className="text-sm">⚽</span>
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-blue-400 text-sm font-bold">✓ {getTeamDisplay(formData.awayTeamId)}</div>
+                          {teams.find(t => t.id === formData.awayTeamId)?.location && (
+                            <div className="text-xs text-blue-400/70">📍 {teams.find(t => t.id === formData.awayTeamId)?.location}</div>
+                          )}
+                        </div>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
@@ -325,9 +371,27 @@ function CreateMatch() {
                               setAwayTeamSearch(team.name);
                               setShowAwayDropdown(false);
                             }}
-                            className="w-full px-4 py-3 text-left text-white hover:bg-slate-800 transition-all border-b border-white/5 last:border-b-0"
+                            className="w-full px-4 py-3 text-left text-white hover:bg-slate-800 transition-all border-b border-white/5 last:border-b-0 flex items-center gap-3"
                           >
-                            {team.teamId ? `${team.name} (${team.teamId})` : team.name}
+                            <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {team.logoURL ? (
+                                <img src={team.logoURL} alt="" className="w-full h-full object-contain p-1" />
+                              ) : (
+                                <span className="text-lg">⚽</span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold truncate">
+                                {team.name}
+                                {team.teamId && <span className="text-slate-500 text-xs ml-2">({team.teamId})</span>}
+                              </div>
+                              {team.location && (
+                                <div className="text-xs text-slate-500 flex items-center gap-1">
+                                  <span>📍</span>
+                                  {team.location}
+                                </div>
+                              )}
+                            </div>
                           </button>
                         ))
                       ) : (

@@ -39,7 +39,7 @@ const Header = () => {
               to="/tournaments"
               className={`transition-colors font-medium ${
                 isActive('/tournaments')
-                  ? 'text-white border-b-2 border-green-400'
+                  ? 'text-white border-b-2 border-green-400 bg-transparent'
                   : 'text-white/90 hover:text-white'
               }`}
             >
@@ -49,7 +49,7 @@ const Header = () => {
               to="/teams"
               className={`transition-colors font-medium ${
                 isActive('/teams')
-                  ? 'text-white border-b-2 border-green-400'
+                  ? 'text-white border-b-2 border-green-400 bg-transparent'
                   : 'text-white/90 hover:text-white'
               }`}
             >
@@ -59,7 +59,7 @@ const Header = () => {
               to="/matches"
               className={`transition-colors font-medium ${
                 isActive('/matches')
-                  ? 'text-white border-b-2 border-green-400'
+                  ? 'text-white border-b-2 border-green-400 bg-transparent'
                   : 'text-white/90 hover:text-white'
               }`}
             >
@@ -71,7 +71,7 @@ const Header = () => {
                   to="/create-match"
                   className={`transition-colors font-medium ${
                     isActive('/create-match') || isActive('/match/friendly-setup')
-                      ? 'text-white border-b-2 border-green-400'
+                      ? 'text-white border-b-2 border-green-400 bg-transparent'
                       : 'text-white/90 hover:text-white'
                   }`}
                 >
@@ -81,7 +81,7 @@ const Header = () => {
                   to="/contact"
                   className={`transition-colors font-medium ${
                     isActive('/contact')
-                      ? 'text-white border-b-2 border-green-400'
+                      ? 'text-white border-b-2 border-green-400 bg-transparent'
                       : 'text-white/90 hover:text-white'
                   }`}
                 >

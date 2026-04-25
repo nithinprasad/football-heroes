@@ -44,6 +44,12 @@ const Header = () => {
             >
               Teams
             </Link>
+            <Link
+              to="/matches"
+              className="text-white/90 hover:text-white transition-colors font-medium"
+            >
+              Matches
+            </Link>
             {currentUser && (
               <>
                 <Link
@@ -234,6 +240,13 @@ const Header = () => {
                 className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
               >
                 👥 Teams
+              </Link>
+              <Link
+                to="/matches"
+                onClick={() => setShowMobileMenu(false)}
+                className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+              >
+                ⚽ Matches
               </Link>
 
               {currentUser ? (

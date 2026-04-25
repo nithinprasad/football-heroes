@@ -23,6 +23,7 @@ import InternalMatch from './pages/InternalMatch';
 import FriendlyMatchSetup from './pages/FriendlyMatchSetup';
 import Contact from './pages/Contact';
 import AdminMessages from './pages/AdminMessages';
+import Matches from './pages/Matches';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { currentUser, loading } = useAuth();
@@ -76,6 +77,7 @@ function AppRoutes() {
       <Route path="/tournaments/:id" element={<TournamentDetail />} />
       <Route path="/teams" element={<Teams />} />
       <Route path="/teams/:id" element={<TeamProfile />} />
+      <Route path="/matches" element={<Matches />} />
       <Route path="/teams/:id/manage" element={<PrivateRoute><ManageTeam /></PrivateRoute>} />
       <Route path="/teams/:id/internal-match" element={<PrivateRoute><InternalMatch /></PrivateRoute>} />
       <Route path="/teams/join/:id" element={<JoinTeam />} />

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import teamService from '../services/team.service';
 import { Team } from '../types';
+import Header from '../components/Header';
 
 function TeamsDashboard() {
   const { userProfile, currentUser } = useAuth();
@@ -48,27 +49,9 @@ function TeamsDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
       {/* Navigation */}
-      <nav className="bg-black/30 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="text-3xl">⚽</div>
-            <h1 className="text-xl md:text-2xl font-bold text-white">Football Heroes</h1>
-          </Link>
-          <div className="flex gap-3 md:gap-4 items-center">
-            <Link to="/dashboard" className="text-white/80 hover:text-white text-sm md:text-base">
-              Dashboard
-            </Link>
-            <Link to="/tournaments" className="text-white/80 hover:text-white text-sm md:text-base">
-              Tournaments
-            </Link>
-            <Link to="/teams" className="text-white/80 hover:text-white text-sm md:text-base">
-              Browse Teams
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Header />
 
-      <div className="container mx-auto px-4 py-6 md:py-8">
+      <div className="container mx-auto px-4 py-6 md:py-8 pt-24">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>

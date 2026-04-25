@@ -134,7 +134,11 @@ function Login() {
         </button>
 
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">⚽</div>
+          <img
+            src="/icon-192.png"
+            alt="Football Heroes"
+            className="w-24 h-24 md:w-32 md:h-32 mx-auto mb-4 rounded-2xl shadow-2xl"
+          />
           <h1 className="text-4xl md:text-5xl font-black text-white mb-2">Football Heroes</h1>
           <p className="text-slate-400 text-sm md:text-base">Tournament Management Platform</p>
         </div>

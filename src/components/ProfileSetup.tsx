@@ -78,7 +78,11 @@ function ProfileSetup({ userId, mobileNumber, onComplete, onSkip }: ProfileSetup
       <div className="max-w-2xl w-full">
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 md:p-10">
           <div className="text-center mb-8">
-            <div className="text-6xl mb-4">⚽</div>
+            <img
+              src="/icon-192.png"
+              alt="Football Heroes"
+              className="w-20 h-20 md:w-24 md:h-24 mx-auto mb-4 rounded-2xl shadow-2xl"
+            />
             <h2 className="text-3xl md:text-4xl font-black text-white mb-2">
               {onSkip ? 'Complete Your Profile' : 'Welcome! Set Up Your Profile'}
             </h2>

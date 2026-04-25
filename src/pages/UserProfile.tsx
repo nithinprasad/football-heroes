@@ -5,6 +5,7 @@ import teamService from '../services/team.service';
 import matchService from '../services/match.service';
 import { User, Team, Match } from '../types';
 import Header from '../components/Header';
+import FollowButton from '../components/FollowButton';
 
 function UserProfile() {
   const { id } = useParams<{ id: string }>();
@@ -105,7 +106,10 @@ function UserProfile() {
 
             {/* Profile Info */}
             <div className="flex-1 text-center md:text-left">
-              <h1 className="text-4xl md:text-5xl font-black text-white mb-4">{user.name}</h1>
+              <div className="flex items-center justify-center md:justify-start gap-4 mb-4">
+                <h1 className="text-4xl md:text-5xl font-black text-white">{user.name}</h1>
+                <FollowButton userId={user.id} userName={user.name} onFollowChange={loadUserData} />
+              </div>
 
               <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-4">
                 {user.position && (
@@ -142,7 +146,15 @@ function UserProfile() {
         </div>
 
         {/* Statistics Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
+          <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl rounded-2xl border border-green-500/20 p-6 text-center">
+            <div className="text-4xl font-black text-green-400 mb-1">{user.statistics?.followers || 0}</div>
+            <div className="text-sm text-slate-400">Followers</div>
+          </div>
+          <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 backdrop-blur-xl rounded-2xl border border-blue-500/20 p-6 text-center">
+            <div className="text-4xl font-black text-blue-400 mb-1">{user.statistics?.following || 0}</div>
+            <div className="text-sm text-slate-400">Following</div>
+          </div>
           <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl border border-white/10 p-6 text-center">
             <div className="text-4xl font-black text-white mb-1">{user.statistics?.matches || 0}</div>
             <div className="text-sm text-slate-400">Matches</div>

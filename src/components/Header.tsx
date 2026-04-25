@@ -1,12 +1,15 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useState } from 'react';
 
 const Header = () => {
   const { currentUser, userProfile, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
 
   const handleSignOut = async () => {
     try {
@@ -24,7 +27,11 @@ const Header = () => {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="text-3xl md:text-4xl">⚽</div>
+            <img
+              src="/icon-192.png"
+              alt="Football Heroes"
+              className="w-10 h-10 md:w-12 md:h-12 rounded-lg"
+            />
             <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
               Football Heroes
             </h1>
@@ -34,27 +41,53 @@ const Header = () => {
           <div className="hidden md:flex items-center gap-6">
             <Link
               to="/tournaments"
-              className="text-white/90 hover:text-white transition-colors font-medium"
+              className={`transition-colors font-medium ${
+                isActive('/tournaments')
+                  ? 'text-white border-b-2 border-green-400 bg-transparent'
+                  : 'text-white/90 hover:text-white'
+              }`}
             >
               Tournaments
             </Link>
             <Link
               to="/teams"
-              className="text-white/90 hover:text-white transition-colors font-medium"
+              className={`transition-colors font-medium ${
+                isActive('/teams')
+                  ? 'text-white border-b-2 border-green-400 bg-transparent'
+                  : 'text-white/90 hover:text-white'
+              }`}
             >
               Teams
+            </Link>
+            <Link
+              to="/matches"
+              className={`transition-colors font-medium ${
+                isActive('/matches')
+                  ? 'text-white border-b-2 border-green-400 bg-transparent'
+                  : 'text-white/90 hover:text-white'
+              }`}
+            >
+              Matches
             </Link>
             {currentUser && (
               <>
                 <Link
                   to="/create-match"
-                  className="text-white/90 hover:text-white transition-colors font-medium"
+                  className={`transition-colors font-medium ${
+                    isActive('/create-match') || isActive('/match/friendly-setup')
+                      ? 'text-white border-b-2 border-green-400 bg-transparent'
+                      : 'text-white/90 hover:text-white'
+                  }`}
                 >
                   Create Match
                 </Link>
                 <Link
                   to="/contact"
-                  className="text-white/90 hover:text-white transition-colors font-medium"
+                  className={`transition-colors font-medium ${
+                    isActive('/contact')
+                      ? 'text-white border-b-2 border-green-400 bg-transparent'
+                      : 'text-white/90 hover:text-white'
+                  }`}
                 >
                   Contact
                 </Link>
@@ -127,6 +160,13 @@ const Header = () => {
                           className="block px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white transition-colors"
                         >
                           📊 Dashboard
+                        </Link>
+                        <Link
+                          to="/my-feed"
+                          onClick={() => setShowDropdown(false)}
+                          className="block px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                          📢 My Feed
                         </Link>
                         <Link
                           to="/my-teams"
@@ -224,16 +264,35 @@ const Header = () => {
               <Link
                 to="/tournaments"
                 onClick={() => setShowMobileMenu(false)}
-                className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+                className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                  isActive('/tournaments')
+                    ? 'bg-green-500/20 text-white border border-green-500/30'
+                    : 'text-white/90 hover:bg-white/10 hover:text-white'
+                }`}
               >
                 🏆 Tournaments
               </Link>
               <Link
                 to="/teams"
                 onClick={() => setShowMobileMenu(false)}
-                className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+                className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                  isActive('/teams')
+                    ? 'bg-green-500/20 text-white border border-green-500/30'
+                    : 'text-white/90 hover:bg-white/10 hover:text-white'
+                }`}
               >
                 👥 Teams
+              </Link>
+              <Link
+                to="/matches"
+                onClick={() => setShowMobileMenu(false)}
+                className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                  isActive('/matches')
+                    ? 'bg-green-500/20 text-white border border-green-500/30'
+                    : 'text-white/90 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                ⚽ Matches
               </Link>
 
               {currentUser ? (
@@ -242,35 +301,66 @@ const Header = () => {
                   <Link
                     to="/dashboard"
                     onClick={() => setShowMobileMenu(false)}
-                    className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+                    className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                      isActive('/dashboard')
+                        ? 'bg-green-500/20 text-white border border-green-500/30'
+                        : 'text-white/90 hover:bg-white/10 hover:text-white'
+                    }`}
                   >
                     📊 Dashboard
                   </Link>
                   <Link
+                    to="/my-feed"
+                    onClick={() => setShowMobileMenu(false)}
+                    className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                      isActive('/my-feed')
+                        ? 'bg-green-500/20 text-white border border-green-500/30'
+                        : 'text-white/90 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    📢 My Feed
+                  </Link>
+                  <Link
                     to="/my-teams"
                     onClick={() => setShowMobileMenu(false)}
-                    className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+                    className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                      isActive('/my-teams')
+                        ? 'bg-green-500/20 text-white border border-green-500/30'
+                        : 'text-white/90 hover:bg-white/10 hover:text-white'
+                    }`}
                   >
                     👥 My Teams
                   </Link>
                   <Link
                     to="/create-match"
                     onClick={() => setShowMobileMenu(false)}
-                    className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+                    className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                      isActive('/create-match') || isActive('/match/friendly-setup')
+                        ? 'bg-green-500/20 text-white border border-green-500/30'
+                        : 'text-white/90 hover:bg-white/10 hover:text-white'
+                    }`}
                   >
                     ⚽ Create Match
                   </Link>
                   <Link
                     to="/profile"
                     onClick={() => setShowMobileMenu(false)}
-                    className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+                    className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                      isActive('/profile')
+                        ? 'bg-green-500/20 text-white border border-green-500/30'
+                        : 'text-white/90 hover:bg-white/10 hover:text-white'
+                    }`}
                   >
                     ⚙️ Profile
                   </Link>
                   <Link
                     to="/contact"
                     onClick={() => setShowMobileMenu(false)}
-                    className="px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors font-medium"
+                    className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                      isActive('/contact')
+                        ? 'bg-green-500/20 text-white border border-green-500/30'
+                        : 'text-white/90 hover:bg-white/10 hover:text-white'
+                    }`}
                   >
                     📧 Contact
                   </Link>

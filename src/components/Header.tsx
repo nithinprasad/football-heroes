@@ -158,6 +158,13 @@ const Header = () => {
                           📊 Dashboard
                         </Link>
                         <Link
+                          to="/my-feed"
+                          onClick={() => setShowDropdown(false)}
+                          className="block px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                          📢 My Feed
+                        </Link>
+                        <Link
                           to="/my-teams"
                           onClick={() => setShowDropdown(false)}
                           className="block px-4 py-2 text-white/90 hover:bg-white/10 hover:text-white transition-colors"
@@ -297,6 +304,17 @@ const Header = () => {
                     }`}
                   >
                     📊 Dashboard
+                  </Link>
+                  <Link
+                    to="/my-feed"
+                    onClick={() => setShowMobileMenu(false)}
+                    className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                      isActive('/my-feed')
+                        ? 'bg-green-500/20 text-white border border-green-500/30'
+                        : 'text-white/90 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    📢 My Feed
                   </Link>
                   <Link
                     to="/my-teams"

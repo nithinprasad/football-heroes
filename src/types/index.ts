@@ -9,6 +9,8 @@ export interface UserStats {
   cleanSheets: number;
   yellowCards: number;
   redCards: number;
+  followers?: number;
+  following?: number;
 }
 
 export interface User {

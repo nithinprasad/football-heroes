@@ -24,6 +24,7 @@ import FriendlyMatchSetup from './pages/FriendlyMatchSetup';
 import Contact from './pages/Contact';
 import AdminMessages from './pages/AdminMessages';
 import Matches from './pages/Matches';
+import MyFeed from './pages/MyFeed';
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { currentUser, loading } = useAuth();
@@ -107,6 +108,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/my-feed"
+        element={
+          <PrivateRoute>
+            <MyFeed />
           </PrivateRoute>
         }
       />

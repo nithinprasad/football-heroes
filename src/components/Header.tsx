@@ -27,7 +27,11 @@ const Header = () => {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="text-3xl md:text-4xl">⚽</div>
+            <img
+              src="/icon-192.png"
+              alt="Football Heroes"
+              className="w-10 h-10 md:w-12 md:h-12 rounded-lg"
+            />
             <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
               Football Heroes
             </h1>

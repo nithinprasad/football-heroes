@@ -138,6 +138,11 @@ function Home() {
 
         <div className="container mx-auto px-4 py-20 relative z-10">
           <div className="text-center max-w-5xl mx-auto">
+            <img
+              src="/icon-192.png"
+              alt="Football Heroes"
+              className="w-20 h-20 md:w-24 md:h-24 mx-auto mb-6 rounded-2xl shadow-2xl"
+            />
             <div className="inline-block mb-6 px-6 py-2 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-full border border-green-500/30 backdrop-blur-sm">
               <span className="text-green-400 font-semibold">🏆 The Ultimate Tournament Platform</span>
             </div>

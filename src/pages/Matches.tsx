@@ -175,9 +175,9 @@ const Matches = () => {
 
   if (loading) {
     return (
-      <>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
         <Header />
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pt-20 px-4">
+        <div className="pt-20 px-4">
           <div className="flex items-center justify-center h-screen">
             <div className="text-center">
               <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-500 mx-auto"></div>
@@ -185,14 +185,14 @@ const Matches = () => {
             </div>
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
       <Header />
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pt-20 px-4 pb-20">
+      <div className="pt-20 px-4 pb-20">
         <div className="container mx-auto max-w-6xl">
           {/* Page Header */}
           <div className="text-center mb-8 md:mb-12">
@@ -343,7 +343,7 @@ const Matches = () => {
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

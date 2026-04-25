@@ -16,6 +16,7 @@ import FixtureGenerationModal from '../components/FixtureGenerationModal';
 import ManualMatchModal from '../components/ManualMatchModal';
 import TournamentBracket from '../components/TournamentBracket';
 import { handleError } from '../utils/errorHandler';
+import Header from '../components/Header';
 
 function TournamentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -316,15 +317,18 @@ function TournamentDetail() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
       {/* Navigation */}
-      <nav className="bg-black/30 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <Link to="/tournaments" className="text-green-400 hover:text-green-300 font-medium text-sm md:text-base">
-            ← Back to Tournaments
+      <Header />
+
+      <div className="container mx-auto px-4 py-6 md:py-8 pt-24">
+        {/* Back Button */}
+        <div className="mb-4">
+          <Link to="/tournaments" className="inline-flex items-center gap-2 text-green-400 hover:text-green-300 font-medium text-sm md:text-base transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Tournaments
           </Link>
         </div>
-      </nav>
-
-      <div className="container mx-auto px-4 py-6 md:py-8">
         {/* Tournament Header */}
         <div className="bg-gradient-to-br from-green-500/10 to-blue-500/10 backdrop-blur-xl rounded-3xl border border-white/10 p-6 md:p-10 mb-6 md:mb-8 shadow-2xl">
           {editingLogo && isOrganizer ? (

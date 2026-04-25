@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import teamService from '../services/team.service';
 import { Team } from '../types';
+import Header from '../components/Header';
 
 function Teams() {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -55,35 +56,9 @@ function Teams() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
       {/* Navigation */}
-      <nav className="bg-black/30 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="text-3xl">⚽</div>
-            <h1 className="text-xl md:text-2xl font-bold text-white">Football Heroes</h1>
-          </Link>
-          <div className="flex gap-3 md:gap-4 items-center">
-            {currentUser ? (
-              <>
-                <Link to="/dashboard" className="text-white/80 hover:text-white text-sm md:text-base">
-                  Dashboard
-                </Link>
-                <Link to="/" className="text-white/80 hover:text-white text-sm md:text-base">
-                  Home
-                </Link>
-              </>
-            ) : (
-              <Link
-                to="/login"
-                className="px-4 md:px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full hover:from-green-600 hover:to-emerald-700 transition-all font-medium shadow-lg text-sm md:text-base"
-              >
-                Sign In
-              </Link>
-            )}
-          </div>
-        </div>
-      </nav>
+      <Header />
 
-      <div className="container mx-auto px-4 py-6 md:py-8">
+      <div className="container mx-auto px-4 py-6 md:py-8 pt-20">
         {/* Header */}
         <div className="text-center mb-8 md:mb-12">
           <h1 className="text-4xl md:text-5xl font-black text-white mb-4">👥 Teams</h1>
